@@ -1,0 +1,55 @@
+<mvc:View
+  controllerName="btp.toolkit.launcher.controller.App"
+  xmlns="sap.m"
+  xmlns:mvc="sap.ui.core.mvc"
+  xmlns:core="sap.ui.core"
+  xmlns:tnt="sap.tnt"
+  height="100%">
+  <tnt:ToolPage id="toolPage">
+    <tnt:header>
+      <tnt:ToolHeader>
+        <Button icon="sap-icon://menu2" type="Transparent" tooltip="{i18n>toggleMenu}" press=".onToggleSideNav">
+          <layoutData><OverflowToolbarLayoutData priority="NeverOverflow"/></layoutData>
+        </Button>
+        <Title text="{i18n>appTitle}" wrapping="false"/>
+        <ToolbarSpacer/>
+      </tnt:ToolHeader>
+    </tnt:header>
+    <tnt:sideContent>
+      <tnt:SideNavigation id="sideNav" selectedKey="{nav>/selected}" itemSelect=".onItemSelect">
+        <tnt:NavigationList items="{nav>/features}">
+          <tnt:NavigationListItem text="{nav>title}" icon="{nav>icon}" key="{nav>ID}" tooltip="{nav>subtitle}"/>
+        </tnt:NavigationList>
+        <tnt:fixedItem>
+          <tnt:NavigationList items="{nav>/system}">
+            <tnt:NavigationListItem text="{nav>title}" icon="{nav>icon}" key="{nav>ID}" tooltip="{nav>subtitle}"/>
+          </tnt:NavigationList>
+        </tnt:fixedItem>
+      </tnt:SideNavigation>
+    </tnt:sideContent>
+    <tnt:mainContents>
+      <Page showHeader="false" enableScrolling="false" backgroundDesign="Transparent">
+        <subHeader>
+          <Toolbar>
+            <Breadcrumbs id="breadcrumbs" currentLocationText="{nav>/crumbCurrent}" links="{nav>/crumbLinks}">
+              <Link text="{nav>text}" press=".onCrumbPress"/>
+            </Breadcrumbs>
+          </Toolbar>
+        </subHeader>
+        <content>
+          <VBox height="100%" renderType="Bare">
+            <MessageStrip
+              text="{nav>/error}"
+              type="Error"
+              showIcon="true"
+              visible="{= !!${nav>/error}}"
+              class="sapUiSmallMargin"/>
+            <core:ComponentContainer id="container" height="100%" width="100%" async="true" lifecycle="Container">
+              <core:layoutData><FlexItemData growFactor="1" minHeight="0"/></core:layoutData>
+            </core:ComponentContainer>
+          </VBox>
+        </content>
+      </Page>
+    </tnt:mainContents>
+  </tnt:ToolPage>
+</mvc:View>

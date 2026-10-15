@@ -1,0 +1,14 @@
+{
+  "xsappname": "btp-ci-toolkit",
+  "tenant-mode": "dedicated",
+  "scopes": [
+    { "name": "$XSAPPNAME.Viewer", "description": "Run CPI tools (e.g. version comparison)" },
+    { "name": "$XSAPPNAME.Admin", "description": "Edit configuration" }
+  ],
+  "attributes": [],
+  "role-templates": [
+    { "name": "Viewer", "description": "Use CPI tools", "scope-references": ["$XSAPPNAME.Viewer"] },
+    { "name": "Admin", "description": "Administer configuration", "scope-references": ["$XSAPPNAME.Admin", "$XSAPPNAME.Viewer"] }
+  ],
+  "authorities-inheritance": false
+}

@@ -1,0 +1,3 @@
+code,name,tenantUrl,tokenUrl,clientId,enabled
+DEV,Development,,,,true
+PROD,Production,,,,true

@@ -1,0 +1,13 @@
+{
+  "recommendations": [
+    "sapse.vscode-cds",
+    "sapse.vscode-sap-cap-tools",
+    "sapse.sap-ux-fiori-tools-extension-pack",
+    "saposs.vscode-ui5-language-assistant",
+    "saposs.xml-toolkit",
+    "saposs.app-studio-toolkit",
+    "redhat.vscode-xml",
+    "redhat.vscode-yaml",
+    "dbaeumer.vscode-eslint"
+  ]
+}

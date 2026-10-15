@@ -1,0 +1,137 @@
+<mvc:View
+  controllerName="btp.toolkit.versioncomparator.controller.Main"
+  xmlns="sap.m"
+  xmlns:mvc="sap.ui.core.mvc"
+  xmlns:core="sap.ui.core"
+  height="100%">
+  <Page id="page" title="{i18n>appTitle}" enableScrolling="true" busy="{view>/busy}" busyIndicatorDelay="0">
+    <content>
+      <Panel headerText="{i18n>selection}" class="sapUiResponsiveMargin" width="auto">
+        <HBox alignItems="End" wrap="Wrap" renderType="Bare">
+          <VBox class="sapUiSmallMarginEnd sapUiTinyMarginBottom" renderType="Bare">
+            <Label text="{i18n>package}" labelFor="packageBox"/>
+            <ComboBox
+              id="packageBox"
+              width="22rem"
+              placeholder="{i18n>packagePlaceholder}"
+              showSecondaryValues="true"
+              filterSecondaryValues="true"
+              items="{view>/packages}"
+              selectedKey="{view>/packageId}"
+              selectionChange=".onPackageChange"
+              change=".onPackageChange">
+              <core:ListItem key="{view>id}" text="{view>id}" additionalText="{view>name}"/>
+            </ComboBox>
+          </VBox>
+          <VBox class="sapUiSmallMarginEnd sapUiTinyMarginBottom" renderType="Bare">
+            <Label text="{i18n>artifact}" labelFor="artifactBox"/>
+            <ComboBox
+              id="artifactBox"
+              width="22rem"
+              placeholder="{i18n>artifactPlaceholder}"
+              enabled="{= !!${view>/packageId}}"
+              showSecondaryValues="true"
+              filterSecondaryValues="true"
+              items="{view>/artifacts}"
+              selectedKey="{view>/artifactId}">
+              <core:ListItem key="{view>id}" text="{view>id}" additionalText="{view>name}"/>
+            </ComboBox>
+          </VBox>
+          <Button
+            class="sapUiTinyMarginBottom sapUiTinyMarginEnd"
+            text="{i18n>compare}"
+            type="Emphasized"
+            enabled="{= !!${view>/packageId}}"
+            press=".onCompare"/>
+          <Button
+            class="sapUiTinyMarginBottom"
+            icon="sap-icon://refresh"
+            type="Transparent"
+            tooltip="{i18n>reload}"
+            press=".onReload"/>
+        </HBox>
+      </Panel>
+
+      <MessageStrip
+        text="{view>/error}"
+        type="Error"
+        showIcon="true"
+        visible="{= !!${view>/error}}"
+        class="sapUiResponsiveMargin"/>
+
+      <IconTabBar
+        id="tabs"
+        class="sapUiResponsiveContentPadding"
+        expandable="false"
+        visible="{view>/hasResult}"
+        selectedKey="{view>/tab}">
+        <items>
+          <IconTabFilter key="result" text="{i18n>tabResult}" count="{view>/summary/total}" icon="sap-icon://compare">
+            <HBox wrap="Wrap" class="sapUiTinyMarginBottom" items="{view>/tags}" renderType="Bare">
+              <ObjectStatus class="sapUiSmallMarginEnd" state="{view>state}" text="{view>text}"/>
+            </HBox>
+            <Table id="resultTable" items="{view>/rows}" growing="true" growingThreshold="100" noDataText="{i18n>noRows}">
+              <headerToolbar>
+                <OverflowToolbar>
+                  <ToolbarSpacer/>
+                  <Label text="{i18n>onlyDifferences}"/>
+                  <Switch state="{view>/onlyDifferences}" change=".onFilterChange"/>
+                </OverflowToolbar>
+              </headerToolbar>
+              <columns>
+                <Column width="10rem"><Text text="{i18n>colType}"/></Column>
+                <Column><Text text="{i18n>colArtifact}"/></Column>
+                <Column width="9rem" hAlign="End"><Text text="{i18n>colDev}"/></Column>
+                <Column width="9rem" hAlign="End"><Text text="{i18n>colProd}"/></Column>
+                <Column width="12rem"><Text text="{i18n>colStatus}"/></Column>
+              </columns>
+              <items>
+                <ColumnListItem>
+                  <cells>
+                    <Text text="{path: 'view>artifactType', formatter: '.formatter.typeText'}"/>
+                    <ObjectIdentifier
+                      title="{= ${view>artifactId} || ${view>packageId}}"
+                      text="{view>artifactName}"/>
+                    <ObjectNumber number="{path: 'view>devVersion', formatter: '.formatter.version'}" emphasized="false"/>
+                    <ObjectNumber number="{path: 'view>prodVersion', formatter: '.formatter.version'}" emphasized="false"/>
+                    <ObjectStatus
+                      text="{path: 'view>status', formatter: '.formatter.statusText'}"
+                      state="{path: 'view>status', formatter: '.formatter.statusState'}"/>
+                  </cells>
+                </ColumnListItem>
+              </items>
+            </Table>
+          </IconTabFilter>
+
+          <IconTabFilter key="log" text="{i18n>tabLog}" count="{view>/logCount}" icon="sap-icon://list">
+            <Table items="{view>/log}" noDataText="{i18n>noRows}">
+              <columns>
+                <Column width="7rem"><Text text="{i18n>colTime}"/></Column>
+                <Column width="4rem"><Text text="{i18n>colLevel}"/></Column>
+                <Column><Text text="{i18n>colMessage}"/></Column>
+              </columns>
+              <items>
+                <ColumnListItem>
+                  <cells>
+                    <Text text="{path: 'view>timestamp', formatter: '.formatter.time'}"/>
+                    <core:Icon
+                      src="{path: 'view>level', formatter: '.formatter.levelIcon'}"
+                      color="{path: 'view>level', formatter: '.formatter.levelColor'}"
+                      tooltip="{view>level}"/>
+                    <Text text="{view>message}"/>
+                  </cells>
+                </ColumnListItem>
+              </items>
+            </Table>
+          </IconTabFilter>
+        </items>
+      </IconTabBar>
+
+      <IllustratedMessage
+        visible="{= !${view>/hasResult} &amp;&amp; !${view>/error}}"
+        illustrationType="sapIllus-SimpleMagnifier"
+        title="{i18n>appTitle}"
+        description="{i18n>noResult}"/>
+    </content>
+  </Page>
+</mvc:View>

@@ -1,0 +1,33 @@
+using { btp.toolkit as db } from '../../db/connections';
+
+/**
+ * Configuration of the CPI connections (DEV / PROD). Admin only.
+ * The client secret is write-only: set it with the `setSecret` action, read `secretSet` to know if one is stored.
+ */
+@path: '/odata/v4/config'
+@requires: 'Admin'
+service ConfigService {
+
+  @restrict: [{ grant: ['READ', 'UPDATE', 'test', 'setSecret'], to: 'Admin' }]
+  @Capabilities: {
+    InsertRestrictions.Insertable : false,
+    DeleteRestrictions.Deletable  : false
+  }
+  @odata.draft.enabled
+  entity Connections as projection on db.Connections {
+    *,
+    virtual null as secretSet : Boolean   // filled on read
+  } excluding { clientSecretEnc }
+  actions {
+    /** Stores the OAuth client secret (encrypted). It can never be read back. */
+    action setSecret(secret : String) returns Boolean;
+
+    /** Requests an OAuth token and calls the CPI API to verify the connection. */
+    action test() returns TestResult;
+  };
+
+  type TestResult {
+    ok      : Boolean;
+    message : String;
+  }
+}

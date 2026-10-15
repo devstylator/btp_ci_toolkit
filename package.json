@@ -1,0 +1,60 @@
+{
+  "name": "btp_ci_toolkit",
+  "version": "1.0.0",
+  "type": "module",
+  "dependencies": {
+    "@cap-js/hana": "^3",
+    "@sap/cds": "^10",
+    "@sap/xssec": "^4"
+  },
+  "devDependencies": {
+    "@cap-js/sqlite": "^3",
+    "@cap-js/cds-types": "^0.18.0",
+    "@types/node": "^24.0.0",
+    "tsx": "^4",
+    "typescript": "^7.0.0",
+    "@cap-js/cds-typer": ">=0.1"
+  },
+  "scripts": {
+    "start": "cds-serve",
+    "watch": "cds watch",
+    "deploy:local": "cds deploy --to sqlite:db.sqlite"
+  },
+  "private": true,
+  "imports": {
+    "#cds-models/*": "./@cds-models/*/index.js"
+  },
+  "cds": {
+    "requires": {
+      "[development]": {
+        "auth": {
+          "kind": "mocked",
+          "users": {
+            "alice": {
+              "password": "alice",
+              "roles": [
+                "Admin",
+                "Viewer"
+              ]
+            },
+            "bob": {
+              "password": "bob",
+              "roles": [
+                "Viewer"
+              ]
+            }
+          }
+        },
+        "db": {
+          "kind": "sqlite",
+          "credentials": {
+            "url": "db.sqlite"
+          }
+        }
+      },
+      "[production]": {
+        "auth": "xsuaa"
+      }
+    }
+  }
+}

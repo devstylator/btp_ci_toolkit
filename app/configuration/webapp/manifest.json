@@ -1,0 +1,83 @@
+{
+  "_version": "1.65.0",
+  "sap.app": {
+    "id": "btp.toolkit.configuration",
+    "type": "application",
+    "title": "Configuration",
+    "applicationVersion": { "version": "1.0.0" },
+    "dataSources": {
+      "mainService": {
+        "uri": "/odata/v4/config/",
+        "type": "OData",
+        "settings": { "odataVersion": "4.0" }
+      }
+    }
+  },
+  "sap.ui": {
+    "technology": "UI5",
+    "deviceTypes": { "desktop": true, "tablet": true, "phone": false }
+  },
+  "sap.ui5": {
+    "dependencies": {
+      "minUI5Version": "1.136.0",
+      "libs": { "sap.m": {}, "sap.ui.core": {}, "sap.fe.templates": {} }
+    },
+    "models": {
+      "": {
+        "dataSource": "mainService",
+        "settings": { "operationMode": "Server", "autoExpandSelect": true, "earlyRequests": true }
+      }
+    },
+    "routing": {
+      "routes": [
+        { "pattern": ":?query:", "name": "ConnectionsList", "target": "ConnectionsList" },
+        { "pattern": "Connections({key}):?query:", "name": "ConnectionsObjectPage", "target": "ConnectionsObjectPage" }
+      ],
+      "targets": {
+        "ConnectionsList": {
+          "type": "Component",
+          "id": "ConnectionsList",
+          "name": "sap.fe.templates.ListReport",
+          "options": {
+            "settings": {
+              "contextPath": "/Connections",
+              "variantManagement": "None",
+              "initialLoad": "Enabled",
+              "hideFilterBar": true,
+              "navigation": { "Connections": { "detail": { "route": "ConnectionsObjectPage" } } }
+            }
+          }
+        },
+        "ConnectionsObjectPage": {
+          "type": "Component",
+          "id": "ConnectionsObjectPage",
+          "name": "sap.fe.templates.ObjectPage",
+          "options": {
+            "settings": {
+              "contextPath": "/Connections",
+              "editableHeaderContent": false,
+              "content": {
+                "header": {
+                  "actions": {
+                    "SetSecret": {
+                      "press": "btp.toolkit.configuration.ext.SecretAction.onSetSecret",
+                      "text": "Set client secret",
+                      "enabled": "{= !${ui>/isEditable} }",
+                      "placement": "After",
+                      "anchor": "DataFieldForAction::ConfigService.test"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "contentDensities": { "compact": true, "cozy": true }
+  },
+  "sap.fiori": {
+    "registrationIds": [],
+    "archeType": "transactional"
+  }
+}

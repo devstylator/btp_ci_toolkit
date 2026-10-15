@@ -1,0 +1,7 @@
+@cds-models
+db.sqlite*
+node_modules/
+*.log
+.DS_Store
+.env
+default-env.json

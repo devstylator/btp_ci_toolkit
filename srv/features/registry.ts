@@ -1,0 +1,48 @@
+export interface FeatureDescriptor {
+  ID: string
+  title: string
+  subtitle?: string
+  icon: string
+  route: string
+  /** UI5 component name and the URL of its webapp folder; the launcher loads it on demand. */
+  component: string
+  componentUrl: string
+  service?: string
+  position: number
+  group: 'FEATURE' | 'SYSTEM'
+  /** Roles allowed to see the entry (any of). */
+  roles: string[]
+}
+
+/**
+ * Feature registry - the single place where features are announced to the UI.
+ * To add a feature follow docs/adding-a-feature.md (service, `using from` in srv/index.cds, an entry here, UI in app/<name>/webapp).
+ */
+export const features: FeatureDescriptor[] = [
+  {
+    ID: 'version-comparator',
+    title: 'Version Comparator',
+    subtitle: 'Compare package and artifact versions between DEV and PROD',
+    icon: 'sap-icon://compare',
+    route: 'version-comparator',
+    component: 'btp.toolkit.versioncomparator',
+    componentUrl: '/version-comparator/webapp',
+    service: '/odata/v4/version-comparator',
+    position: 10,
+    group: 'FEATURE',
+    roles: ['Viewer', 'Admin']
+  },
+  {
+    ID: 'configuration',
+    title: 'Configuration',
+    subtitle: 'DEV and PROD connections',
+    icon: 'sap-icon://action-settings',
+    route: 'configuration',
+    component: 'btp.toolkit.configuration',
+    componentUrl: '/configuration/webapp',
+    service: '/odata/v4/config',
+    position: 1000,
+    group: 'SYSTEM',
+    roles: ['Admin']
+  }
+]
