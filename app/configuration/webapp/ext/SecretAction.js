@@ -33,6 +33,9 @@ sap.ui.define([
   }
 
   return {
+    isDirectConnection(context) {
+      return context ? context.requestObject("connectionMode").then(mode => mode !== "DESTINATION") : false;
+    },
     async onSetSecret(contextOrEvent) {
       const context = contextOrEvent && contextOrEvent.getObject
         ? contextOrEvent

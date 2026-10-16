@@ -9,6 +9,7 @@ The app is deployed as one MTA (`mta.yaml`) consisting of:
 | `btp-ci-toolkit` | Approuter (`approuter/`) | The only public entry point: login (XSUAA), forwards everything to the CAP server with the user's token |
 | `btp-ci-toolkit-auth` | XSUAA (`xs-security.json`) | Scopes `Viewer`/`Admin`, role templates and **role collections `CiToolkitViewer` / `CiToolkitAdmin`** |
 | `btp-ci-toolkit-db` | HDI container (`hana`, `hdi-shared`) | The database schema |
+| `btp-ci-toolkit-destination` | Destination (`destination`, `lite`) | Resolves named CPI destinations on the CAP server |
 | `ci-toolkit-secrets` | user-provided service | Holds `SECRET_KEY` (not in git) |
 
 ## Prerequisites (once per subaccount / space)
@@ -20,6 +21,7 @@ The app is deployed as one MTA (`mta.yaml`) consisting of:
 2. Entitlements for `xsuaa` (plan `application`). No Work Zone / HTML5 repo is needed.
 3. Local tools: `cf` CLI with the `multiapps` plugin, `mbt`, Node.js 22+. Logged in: `cf login`, `cf target -o <org> -s <space>`.
 4. The CF space needs outbound internet (to reach the CPI tenants and `ui5.sap.com` for the browser).
+5. Destination service entitlement (`destination`, plan `lite`). The MTA creates and binds it to the CAP server.
 
 ## 1. Create the encryption key (once)
 
@@ -58,6 +60,52 @@ Log out and in again after changing roles (new token).
 Open the approuter URL -> **Configuration** -> DEV -> *Edit* -> fill in tenant URL, token URL, client ID -> *Save* ->
 *Set client secret* -> *Test connection*. Repeat for PROD. Then use **Version Comparator**.
 (Values come from the service key of the Integration Suite runtime `api` plan: `url`, `tokenurl`, `clientid`, `clientsecret`.)
+
+### BTP Destination connections
+
+For each environment, you can instead select **BTP Destination** and enter a destination name. Create the destination
+in the application's subaccount (Connectivity -> Destinations), or in the bound Destination service instance:
+
+| Setting | Value |
+|---------|-------|
+| Name | For example `CPI_DEV` / `CPI_PROD` |
+| Type | `HTTP` |
+| URL | CPI tenant base URL, the same value used for direct `tenantUrl`; omit `/api/v1` |
+| Proxy Type | `Internet` |
+| Authentication | `OAuth2ClientCredentials` |
+| Client ID / Client Secret | From the target tenant's Integration Suite runtime `api` service key |
+| Token Service URL | The service key's `tokenurl` |
+
+The destination is configured where this toolkit runs, even if the target CPI tenant is in another subaccount.
+Use distinct names when both instance and subaccount destinations exist; the SDK prioritizes instance destinations.
+Production resolves through the Destination service using the application's service bindings, without forwarding the
+user's token. Credentials/tokens resolved from BTP are never copied into HANA or returned to the browser.
+Switching mode retains any previously stored direct settings and encrypted secret so you can switch back.
+`Set client secret` applies only to direct mode. Save changes before using **Test connection**.
+
+**Allow CPI modifications** defaults to off independently for DEV and PROD. Only Admin can change it, through
+the normal Edit/Save draft flow. Turning it on permits guarded CPI writes by tools, subject to the target CPI
+service account's permissions. It does not change those permissions. Connection tests only verify read access;
+deploying packages and removing locks remain separate future features.
+
+For local development against real BTP destinations, bind Destination and XSUAA services using CAP hybrid bindings
+and run with the hybrid profile (`cds bind -2 <destination-instance>,<xsuaa-instance>` followed by
+`npm run watch -- --profile hybrid`). Keep binding files/credentials out of git.
+For isolated local tests, the SDK also supports its `destinations` environment variable or `registerDestination`
+with resolved OAuth tokens; these are development mechanisms, ignored by the application's production lookup.
+HTTPS is required in production; `http://localhost` is accepted only locally.
+
+### Updating an existing installation
+
+Build and redeploy the complete MTA so the new database columns and Destination binding are deployed together.
+New connection fields have defaults `DIRECT` and `false`, preserving existing direct credentials and read behavior.
+For an existing local database, stop the app, back up `db.sqlite`, run `npm run upgrade:local`, and restart.
+This adds the three new columns to the active and draft connection tables and refreshes the service view;
+it can safely be rerun.
+`deploy:local` recreates tables and reloads seed data, so reserve it for new/reset databases.
+For HANA use your normal backup and full MTA deployment process. The existing seed CSV is unchanged.
+After deployment, verify the existing DEV/PROD settings and test both.
+Keep `ci-toolkit-secrets` and its key while any stored direct credentials are retained.
 
 ## Current deployment (trial)
 
@@ -98,3 +146,6 @@ Open the approuter URL -> **Configuration** -> DEV -> *Edit* -> fill in tenant U
 | 403 / "lacking required roles" after login | role collection not assigned, or not logged in again |
 | Config page shows 412 `not fully configured` | connection data/secret missing (Configuration page) |
 | CPI calls fail with 502 / connection errors | no outbound internet, wrong URLs, or wrong service key |
+| Destination lookup fails | wrong destination name, missing Destination/XSUAA binding, or destination in a different subaccount |
+| Destination rejected | use HTTP, Internet, OAuth2ClientCredentials and a valid HTTPS tenant base URL |
+| CPI modifications return 403 | save Allow CPI modifications for the target environment and ensure the connection is enabled; CPI may also deny insufficient service-account permissions |

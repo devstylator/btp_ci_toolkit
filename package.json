@@ -4,6 +4,9 @@
   "type": "module",
   "dependencies": {
     "@cap-js/hana": "^3",
+    "@sap-cloud-sdk/connectivity": "^4.9.1",
+    "@sap-cloud-sdk/http-client": "^4.9.1",
+    "@sap-cloud-sdk/util": "^4.9.1",
     "@sap/cds": "^10",
     "@sap/xssec": "^4"
   },
@@ -20,8 +23,10 @@
     "start": "cds-serve",
     "watch": "cds watch",
     "deploy:local": "cds deploy --to sqlite:db.sqlite",
+    "upgrade:local": "node scripts/upgrade-local.mjs",
     "build": "cds build --production",
-    "typecheck": "tsc --noEmit -p ."
+    "typecheck": "tsc --noEmit -p .",
+    "test": "CDS_TYPESCRIPT=true node --import tsx --test test/*.test.ts"
   },
   "private": true,
   "imports": {

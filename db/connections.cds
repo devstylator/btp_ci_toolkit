@@ -9,6 +9,9 @@ using { managed } from '@sap/cds/common';
 entity Connections : managed {
   key code          : String(10) enum { DEV; PROD };
       name          : String(60);
+      connectionMode : String(20) enum { DIRECT; DESTINATION } default 'DIRECT';
+      destinationName : String(255);
+      allowModifications : Boolean default false;
       tenantUrl     : String(255);   // API base URL, e.g. https://<tenant>.it-cpi001.cfapps.eu10.hana.ondemand.com
       tokenUrl      : String(255);   // OAuth2 token endpoint, e.g. https://<subdomain>.authentication.eu10.hana.ondemand.com/oauth/token
       clientId      : String(255);

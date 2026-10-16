@@ -8,6 +8,13 @@ using { btp.toolkit as db } from '../../db/connections';
 @requires: 'Admin'
 service ConfigService {
 
+  @readonly
+  @cds.persistence.skip
+  entity ConnectionModes {
+    key code : String(20);
+        name : String(60);
+  }
+
   @restrict: [{ grant: ['READ', 'UPDATE', 'test', 'setSecret'], to: 'Admin' }]
   @Capabilities: {
     InsertRestrictions.Insertable : false,

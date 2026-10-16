@@ -3,6 +3,19 @@ using ConfigService as service from '../../srv/core/config-service';
 annotate service.Connections with {
   code            @title: 'Environment';
   name            @title: 'Name';
+  connectionMode  @title: 'Connection mode'
+    @Common.ValueListWithFixedValues: true
+    @Common.ValueList: {
+      CollectionPath: 'ConnectionModes',
+      Parameters: [
+        { $Type: 'Common.ValueListParameterInOut', LocalDataProperty: connectionMode, ValueListProperty: 'code' },
+        { $Type: 'Common.ValueListParameterDisplayOnly', ValueListProperty: 'name' }
+      ]
+    };
+  destinationName @title: 'BTP Destination name'
+    @description: 'Name of an OAuth2ClientCredentials destination in the application subaccount';
+  allowModifications @title: 'Allow CPI modifications'
+    @description: 'Allows tools to change this CPI tenant, subject to CPI permissions. Off means read only.';
   tenantUrl       @title: 'Tenant URL'       @description: 'API base URL of the Integration Suite tenant';
   tokenUrl        @title: 'Token URL'        @description: 'OAuth2 token endpoint from the service key';
   clientId        @title: 'Client ID';
@@ -24,8 +37,9 @@ annotate service.Connections with @(
   UI.LineItem: [
     { Value: code },
     { Value: name },
-    { Value: tenantUrl },
-    { Value: secretSet },
+    { Value: connectionMode },
+    { Value: destinationName },
+    { Value: allowModifications },
     { Value: enabled },
     { Value: lastTestOk },
     { Value: lastTestAt }
@@ -37,17 +51,30 @@ annotate service.Connections with @(
 
   UI.Facets: [
     { $Type: 'UI.ReferenceFacet', ID: 'Connection', Label: 'Connection',           Target: '@UI.FieldGroup#Connection' },
+    { $Type: 'UI.ReferenceFacet', ID: 'Direct', Label: 'Direct credentials', Target: '@UI.FieldGroup#Direct', ![@UI.Hidden]: (connectionMode = 'DESTINATION') },
+    { $Type: 'UI.ReferenceFacet', ID: 'Destination', Label: 'BTP Destination', Target: '@UI.FieldGroup#Destination', ![@UI.Hidden]: (connectionMode <> 'DESTINATION') },
     { $Type: 'UI.ReferenceFacet', ID: 'Test',       Label: 'Last connection test', Target: '@UI.FieldGroup#Test' }
   ],
 
   UI.FieldGroup #Connection: {
     Data: [
       { Value: name },
+      { Value: connectionMode },
+      { Value: enabled },
+      { Value: allowModifications }
+    ]
+  },
+
+  UI.FieldGroup #Destination: {
+    Data: [{ Value: destinationName }]
+  },
+
+  UI.FieldGroup #Direct: {
+    Data: [
       { Value: tenantUrl },
       { Value: tokenUrl },
       { Value: clientId },
-      { Value: secretSet },
-      { Value: enabled }
+      { Value: secretSet }
     ]
   },
 

@@ -31,6 +31,7 @@ modules:
       - name: btp-ci-toolkit-auth
       - name: btp-ci-toolkit-db
       - name: ci-toolkit-secrets
+      - name: btp-ci-toolkit-destination
 
   - name: btp-ci-toolkit-db-deployer
     type: hdb
@@ -64,6 +65,12 @@ modules:
           app-uri: ${default-uri}
 
 resources:
+  - name: btp-ci-toolkit-destination
+    type: org.cloudfoundry.managed-service
+    parameters:
+      service: destination
+      service-plan: lite
+
   - name: btp-ci-toolkit-auth
     type: org.cloudfoundry.managed-service
     parameters:

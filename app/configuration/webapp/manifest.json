@@ -63,6 +63,7 @@
                       "press": "btp.toolkit.configuration.ext.SecretAction.onSetSecret",
                       "text": "Set client secret",
                       "enabled": "{= !${ui>/isEditable} }",
+                      "visible": "btp.toolkit.configuration.ext.SecretAction.isDirectConnection",
                       "placement": "After",
                       "anchor": "DataFieldForAction::ConfigService.test"
                     }

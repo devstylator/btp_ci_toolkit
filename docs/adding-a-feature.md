@@ -87,6 +87,17 @@ Shared building blocks in `srv/lib/` (reuse, do not reimplement):
 | `cpi-client.ts` -> `CpiClient`, `CpiError` | OAuth2 client-credentials token (cached), `get(path)` against `<tenantUrl>/api/v1/<path>` (OData V2 JSON, follows `__next` paging, 30 s timeout) |
 | `crypto.ts` -> `encrypt`, `decrypt` | AES-256-GCM, key from `SECRET_KEY` |
 
+`loadConnection` handles direct credentials and BTP Destination mode. Feature code must use the shared client
+without assuming that token URL, client ID or secret exist on every connection.
+
+For every mutating CPI operation, use `await client.write('POST' | 'PUT' | 'PATCH' | 'DELETE', path, data?)`.
+It rechecks the **active** connection's `enabled` and `allowModifications` flags before authentication/network
+traffic and throws an error with `statusCode: 403` if blocked. Propagate this application error as 403;
+do not wrap it as a CPI 502 failure. Writes use SDK CSRF handling. Never send CPI writes through raw fetch,
+an SDK call in a feature, or a mutating endpoint disguised as a GET. CPI permissions still apply.
+The switch governs remote CPI changes; a local OData POST for read-only computation (like `compare`) is allowed.
+Keep existing Viewer/Admin role behavior unless a new requirement explicitly adds a separate operator role.
+
 Error conventions: not configured -> 412 (from `loadConnection`), CPI unreachable/failing -> 502 for plain
 functions; for actions that return a result object prefer `success=false` + ERROR log entry (see
 `srv/features/version-comparator/service.ts`). Never log or return secrets.

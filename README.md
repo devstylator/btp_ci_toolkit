@@ -9,7 +9,7 @@ Current features:
 | Feature | What it does |
 |---------|--------------|
 | **Version Comparator** | Compares package / artifact versions between the DEV and PROD tenants (version numbers only), with a status per item (match, differs, missing in DEV/PROD) and a step log. Nothing is stored. |
-| **Configuration** | Maintains the two CPI connections (DEV, PROD): tenant URL, token URL, client ID, client secret (stored encrypted, write-only), enabled flag, and a "Test connection" action. |
+| **Configuration** | Maintains DEV/PROD connections using direct credentials (encrypted secret) or a BTP Destination, with enabled and Allow CPI modifications switches and a "Test connection" action. |
 
 ## Quick start (local)
 
@@ -30,6 +30,14 @@ Open http://localhost:4004/ and log in with a mocked local user:
 
 Then, as `alice`: **Configuration** -> pick DEV -> *Edit* -> fill tenant URL, token URL, client ID -> *Save* ->
 *Set client secret* -> *Test connection*. Repeat for PROD. Local runs talk to the **real** tenants.
+
+Alternatively select **BTP Destination** and enter the destination name; URL and credentials are maintained in BTP.
+See [Destination setup and local development](docs/deployment.md#btp-destination-connections).
+**Allow CPI modifications** defaults to off for each environment. Reads and comparisons work with it off;
+future tools that change CPI must use the shared guarded write method. Enabling it does not grant CPI permissions.
+
+For an existing local database, stop the app, back up `db.sqlite`, run `npm run upgrade:local`, then restart.
+Use `deploy:local` for fresh/reset databases; it recreates tables and reloads seed data.
 
 Where do the values come from? From a service key of the Integration Suite process-integration runtime
 (`api` plan) in each subaccount: `url` (tenant URL), `tokenurl`, `clientid`, `clientsecret`.
@@ -79,6 +87,9 @@ Details and templates: **[docs/adding-a-feature.md](docs/adding-a-feature.md)**.
 
 Metadata: `http://localhost:4004/odata/v4/<service>/$metadata`.
 
+Run `npm run typecheck` and `npm test` for type checking and isolated configuration/CPI integration tests.
+Tests use an in-memory database and a temporary local CPI fixture; they do not change `db.sqlite` or real tenants.
+
 ## Security notes
 
 - Client secrets are encrypted with AES-256-GCM before they are stored; no service ever returns them.
@@ -90,8 +101,8 @@ Metadata: `http://localhost:4004/odata/v4/<service>/$metadata`.
 
 ## Status and roadmap
 
-See [requirements.md](requirements.md). Deployment files are ready; the first deployment is waiting for a HANA Cloud
-instance in the target space.
+See [requirements.md](requirements.md). The first version is deployed to Cloud Foundry; these configuration changes
+require a new build/deployment and the Destination service entitlement.
 
 ## Deployment to SAP BTP Cloud Foundry
 

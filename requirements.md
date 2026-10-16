@@ -13,7 +13,7 @@ features, plus a link to Configuration. New features must be easy to add.
 |---|----------|
 | D1 | Two environments, **fixed: DEV and PROD**; each is a separate subaccount with its own Integration Suite tenant. |
 | D2 | Auth towards CPI Management API (`/api/v1`): **OAuth2 client credentials** (service key data). |
-| D3 | Connection settings and secrets are **stored in the app DB**; the client secret is **AES-256-GCM encrypted at app level** (key from env `SECRET_KEY`), write-only (never returned by any API). |
+| D3 | Per DEV/PROD connection, choose **Direct credentials** (settings and AES-256-GCM encrypted, write-only secret in the app DB; key from `SECRET_KEY`) or **BTP Destination** (destination name in the app DB; destination credentials managed in BTP and never copied to the DB). Existing direct settings are retained when switching modes. |
 | D4 | Roles: **Viewer** (use tools) and **Admin** (edit configuration; also includes Viewer). In code/`@requires` these are the scopes `Viewer`/`Admin`; on BTP the role templates and role collections are named **`CiToolkitViewer`** / **`CiToolkitAdmin`**. |
 | D5 | Runtime: **CAP Node.js + TypeScript** (ESM, run via `tsx`). DB: **SQLite locally (file `db.sqlite`), HANA Cloud on BTP**. |
 | D6 | Local runs talk to **real CPI tenants** (credentials entered via Configuration); no built-in CPI mock. |
@@ -21,6 +21,8 @@ features, plus a link to Configuration. New features must be easy to add.
 | D8 | Extensibility: **each feature = own CDS service + handler module + own UI app**, announced through a feature registry. |
 | D9 | Version comparator results are **not persisted**; the `compare` action returns the result plus a step log. |
 | D10 | Deployment: one MTA, CAP server serves OData **and** the UI (`app/` copied into the bundle), standalone approuter + XSUAA for login, HANA Cloud HDI for persistence, `SECRET_KEY` from user-provided service `ci-toolkit-secrets`. No HTML5 repo / Work Zone. See `docs/deployment.md`. |
+| D11 | Destination mode uses SAP Cloud SDK, a Destination service binding, and HTTP/Internet **OAuth2ClientCredentials** destinations in the application's subaccount (or bound service instance). Production resolves through Destination service only; local development can use hybrid bindings or SDK local destinations. |
+| D12 | Each environment has **Allow CPI modifications**, default **off**, editable by Admin. All mutating CPI calls go through the shared client's `write` method, which checks active, enabled configuration each time and rejects with HTTP 403 when blocked. This setting does not affect app configuration updates, token requests, connection tests, or read-only comparison actions. CPI permissions must independently allow the operation; existing Viewer/Admin roles remain unchanged. |
 
 ## 3. Architecture
 ```
@@ -62,6 +64,10 @@ GitHub: https://github.com/devstylator/btp_ci_toolkit (branch `main`). Docs: [RE
 - FR-CFG-5 ✅ URLs must be `https://` (`http://localhost` allowed for local testing).
 - FR-CFG-6 ✅ Admin only.
 - FR-CFG-7 ✅ UI: list of the two connections -> object page; Edit/Save (draft), `Test connection` (result as toast/warning, “Last connection test” section refreshes), `Set client secret` (custom action with masked password dialog, since FE action dialogs cannot mask input).
+- FR-CFG-8 ✅ Per-connection `connectionMode` (`DIRECT`, default, or `DESTINATION`) and `destinationName`; destination name required on destination draft activation. Destination mode requires no direct credentials. Existing connections continue in direct mode. UI offers a fixed mode dropdown with conditional settings; direct secret action is hidden/rejected in destination mode.
+- FR-CFG-9 ✅ Per-connection `allowModifications`, default false; only saved active configuration enables writes, independently for DEV and PROD. Disabled/missing connections and false/null modification flags block all CPI writes before authentication/network traffic. Existing client instances recheck saved policy; unsaved drafts cannot enable writes.
+- FR-CFG-10 ✅ `test` uses the selected connection mode and records sanitized destination lookup/authentication failures. It only tests read connectivity and does not certify CPI write permission.
+- FR-CFG-11 ✅ Existing SQLite installations can add the new configuration columns and refresh the CAP service view with `npm run upgrade:local`, preserving active and draft settings/secrets without recreating tables or reloading seed data.
 
 ### 4.2 Version Comparator (✅ backend, ✅ UI)
 - FR-VC-1 ✅ User selects a package (value help: `listPackages`) and optionally one artifact (`listArtifacts`).
@@ -84,6 +90,7 @@ GitHub: https://github.com/devstylator/btp_ci_toolkit (branch `main`). Docs: [RE
 - NFR-2 CPI calls: 30 s timeout, OAuth token cached in memory until expiry, `__next` paging followed.
 - NFR-3 Local auth: mocked users `alice/alice` (Admin, Viewer), `bob/bob` (Viewer). Production: XSUAA (`xs-security.json`).
 - NFR-4 UI: the browser shows its Basic-auth prompt locally (mocked users); static UI files are public, data calls are authorized. Do not open the UI with credentials in the URL (`http://user:pw@...` breaks `fetch`).
+- NFR-5 Destination credentials/tokens never returned or persisted; SDK diagnostic logging is muted because debug output may contain credentials. Application errors expose only sanitized context/status. CPI requests and pagination stay inside the configured tenant API; redirects are not followed. URLs require HTTPS in production (localhost HTTP only in development).
 
 ## 6. Out of scope (for now)
 - ❌ History/persistence of comparison runs · ❌ more than two environments · ❌ BTP Credential Store · ❌ CPI mock server.
@@ -99,6 +106,8 @@ GitHub: https://github.com/devstylator/btp_ci_toolkit (branch `main`). Docs: [RE
 7. ⬜ Ideas for next features: _(add here)_
 
 ## 8. Changelog
+- 2026-10-16: local configuration upgrade also refreshes the CAP SQL view; regression test verifies new fields are queryable and secrets remain excluded.
+- 2026-10-16: added per-environment Direct/BTP Destination connection modes and default-off CPI modification access, shared backend write guard, Destination service binding, conditional Configuration UI, and isolated integration tests.
 - 2026-10-16: first deployment to Cloud Foundry (MTA `btp-ci-toolkit` 1.0.0).
 - 2026-10-16: deployment prepared (MTA, approuter, XSUAA role collections `CiToolkitViewer`/`CiToolkitAdmin`, HDI, `ci-toolkit-secrets`), TypeScript build fixed, CSRF token handling in Version Comparator, `docs/deployment.md`.
 - 2026-10-15: added README.md, AGENTS.md and docs/adding-a-feature.md; project put under git.
