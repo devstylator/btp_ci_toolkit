@@ -7,8 +7,28 @@
   ],
   "attributes": [],
   "role-templates": [
-    { "name": "Viewer", "description": "Use CPI tools", "scope-references": ["$XSAPPNAME.Viewer"] },
-    { "name": "Admin", "description": "Administer configuration", "scope-references": ["$XSAPPNAME.Admin", "$XSAPPNAME.Viewer"] }
+    {
+      "name": "CiToolkitViewer",
+      "description": "Use CPI tools",
+      "scope-references": ["$XSAPPNAME.Viewer"]
+    },
+    {
+      "name": "CiToolkitAdmin",
+      "description": "Administer configuration (includes viewer)",
+      "scope-references": ["$XSAPPNAME.Admin", "$XSAPPNAME.Viewer"]
+    }
+  ],
+  "role-collections": [
+    {
+      "name": "CiToolkitViewer",
+      "description": "BTP CI Toolkit: use the tools",
+      "role-template-references": ["$XSAPPNAME.CiToolkitViewer"]
+    },
+    {
+      "name": "CiToolkitAdmin",
+      "description": "BTP CI Toolkit: use the tools and edit the configuration",
+      "role-template-references": ["$XSAPPNAME.CiToolkitAdmin"]
+    }
   ],
   "authorities-inheritance": false
 }

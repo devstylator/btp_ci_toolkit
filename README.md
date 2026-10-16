@@ -51,6 +51,9 @@ app/
   configuration/          Fiori Elements app (Configuration)
   version-comparator/webapp/  freeform UI5 app
 docs/adding-a-feature.md  how to add a feature (the plugin recipe)
+docs/deployment.md        deploying to Cloud Foundry
+mta.yaml, approuter/      deployment descriptor and the approuter (login, routing)
+scripts/copy-ui.mjs       build helper: puts the UI into the server bundle
 requirements.md           living requirements, decisions, status, roadmap
 xs-security.json          XSUAA roles: Viewer, Admin
 ```
@@ -79,15 +82,21 @@ Metadata: `http://localhost:4004/odata/v4/<service>/$metadata`.
 ## Security notes
 
 - Client secrets are encrypted with AES-256-GCM before they are stored; no service ever returns them.
-- Set `SECRET_KEY` (any strong random string) as an environment variable in production - secret handling fails
-  without it in production. Locally a fixed development key is used.
-- Local authentication is mocked; on BTP the app uses XSUAA (`xs-security.json`). Assign the `Viewer` / `Admin`
-  role collections to users.
+- `SECRET_KEY` encrypts the stored secrets. On Cloud Foundry it comes from the user-provided service
+  `ci-toolkit-secrets` (see the deployment guide); secret handling fails in production without it. Locally a fixed
+  development key is used.
+- Local authentication is mocked; on BTP the app uses XSUAA (`xs-security.json`). Assign the role collections
+  `CiToolkitViewer` / `CiToolkitAdmin` to users.
 
 ## Status and roadmap
 
-See [requirements.md](requirements.md). Not done yet: deployment descriptor (`mta.yaml`, HANA, XSUAA, approuter /
-HTML5 repo), `SECRET_KEY` provisioning on BTP, verification against real tenants.
+See [requirements.md](requirements.md). Deployment files are ready; the first deployment is waiting for a HANA Cloud
+instance in the target space.
+
+## Deployment to SAP BTP Cloud Foundry
+
+MTA with CAP server, HANA (HDI), XSUAA and approuter: **[docs/deployment.md](docs/deployment.md)**
+(`npm run typecheck`, `mbt build`, `cf deploy`).
 
 ## For AI agents
 

@@ -47,7 +47,7 @@ Rules:
 - One service per feature, path `/odata/v4/<name>`.
 - Always set `@requires` (roles are `Viewer` = use tools, `Admin` = configuration + everything).
   Use `@restrict` for finer control. Do not invent new roles without adding them to `xs-security.json`
-  (scope + role template) and `requirements.md`.
+  (scope + role template + role collection, existing ones are `CiToolkitViewer`/`CiToolkitAdmin`) and `requirements.md`.
 - Prefer returning structured results (and a `log` array, like the comparator) over streaming.
 - No persistence unless the requirement says so (see decision D9 in `requirements.md`).
 
@@ -186,5 +186,6 @@ use `srv/lib/crypto.ts` and never expose the encrypted column through a service 
 - [ ] registry entry (`component` == `sap.app.id`, `componentUrl` points to `webapp`)
 - [ ] UI works embedded in the launcher; texts in `i18n`
 - [ ] roles consistent in `@requires`, registry `roles`, and `xs-security.json`
+- [ ] `npm run typecheck` passes
 - [ ] verified locally (metadata, side nav, breadcrumbs, happy path + "not configured" 412 path)
 - [ ] `requirements.md` and `README.md` updated

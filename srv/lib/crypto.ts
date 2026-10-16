@@ -1,13 +1,26 @@
 import crypto from 'node:crypto'
 
 const ALGORITHM = 'aes-256-gcm'
+const SECRETS_SERVICE = 'ci-toolkit-secrets'
 const DEV_FALLBACK_KEY = 'btp-ci-toolkit-local-development-key'
 
+/** SECRET_KEY comes from the environment, or on Cloud Foundry from the user-provided service `ci-toolkit-secrets`. */
+function readSecretKey(): string | undefined {
+  if (process.env.SECRET_KEY) return process.env.SECRET_KEY
+  try {
+    const vcap = JSON.parse(process.env.VCAP_SERVICES ?? '{}')
+    const service = (vcap['user-provided'] ?? []).find((s: any) => s.name === SECRETS_SERVICE)
+    return service?.credentials?.SECRET_KEY
+  } catch {
+    return undefined
+  }
+}
+
 function getKey(): Buffer {
-  let secret = process.env.SECRET_KEY
+  let secret = readSecretKey()
   if (!secret) {
     if (process.env.NODE_ENV === 'production') {
-      throw new Error('SECRET_KEY environment variable is required in production')
+      throw new Error(`SECRET_KEY is required in production (env var or user-provided service '${SECRETS_SERVICE}')`)
     }
     secret = DEV_FALLBACK_KEY
   }

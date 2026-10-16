@@ -14,12 +14,13 @@ features, plus a link to Configuration. New features must be easy to add.
 | D1 | Two environments, **fixed: DEV and PROD**; each is a separate subaccount with its own Integration Suite tenant. |
 | D2 | Auth towards CPI Management API (`/api/v1`): **OAuth2 client credentials** (service key data). |
 | D3 | Connection settings and secrets are **stored in the app DB**; the client secret is **AES-256-GCM encrypted at app level** (key from env `SECRET_KEY`), write-only (never returned by any API). |
-| D4 | Roles: **Viewer** (use tools) and **Admin** (edit configuration; also includes Viewer). |
+| D4 | Roles: **Viewer** (use tools) and **Admin** (edit configuration; also includes Viewer). In code/`@requires` these are the scopes `Viewer`/`Admin`; on BTP the role templates and role collections are named **`CiToolkitViewer`** / **`CiToolkitAdmin`**. |
 | D5 | Runtime: **CAP Node.js + TypeScript** (ESM, run via `tsx`). DB: **SQLite locally (file `db.sqlite`), HANA Cloud on BTP**. |
 | D6 | Local runs talk to **real CPI tenants** (credentials entered via Configuration); no built-in CPI mock. |
 | D7 | Frontend: Fiori Elements where it fits. FE has no CPI-like side nav, so a small **launcher shell** (UI5 `sap.tnt.ToolPage` + `SideNavigation`) hosts the feature UIs (owner agreed). Configuration = Fiori Elements (List Report + Object Page, draft). Version Comparator = custom (freeform) UI5 view, because FE has no template for “action with input returning a result + log”. UI5 is loaded from the SAPUI5 CDN (1.136.0), theme `sap_horizon`. |
 | D8 | Extensibility: **each feature = own CDS service + handler module + own UI app**, announced through a feature registry. |
 | D9 | Version comparator results are **not persisted**; the `compare` action returns the result plus a step log. |
+| D10 | Deployment: one MTA, CAP server serves OData **and** the UI (`app/` copied into the bundle), standalone approuter + XSUAA for login, HANA Cloud HDI for persistence, `SECRET_KEY` from user-provided service `ci-toolkit-secrets`. No HTML5 repo / Work Zone. See `docs/deployment.md`. |
 
 ## 3. Architecture
 ```
@@ -92,12 +93,13 @@ GitHub: https://github.com/devstylator/btp_ci_toolkit (branch `main`). Docs: [RE
 2. ✅ Owner reviewed DB model + OData.
 3. ✅ UI: launcher (http://localhost:4004/ -> `/launcher/webapp/index.html`), Configuration (FE), Version Comparator.
 3a. 🚧 Owner reviews the UI; verify against real tenants (local DB `db.sqlite`, configure DEV/PROD in the Configuration page).
-4. ⬜ Deployment (UI must be served via approuter/HTML5 repo; replace CDN-relative absolute paths `/odata/...`, `/configuration/webapp` if the app is mounted elsewhere; consider a UI5 build/preload to remove the harmless `Component-preload.js` 404s): `mta.yaml`, HANA HDI, XSUAA, app router / managed approuter, `SECRET_KEY` provisioning (user-provided service or env).
+4. 🚧 Deployment: files ready (`mta.yaml`, `approuter/`, `scripts/copy-ui.mjs`, `docs/deployment.md`), MTAR builds and the production bundle was smoke-tested locally. **Not yet deployed**: waiting for a HANA Cloud instance mapped to the CF space (trial account `48a865d4trial`/`dev`, region ap21: the `hana` offering exists but there is no database available). Remaining after HANA: create `ci-toolkit-secrets`, `cf deploy`, assign role collections, test against real tenants. (Optional later: UI5 build/preload to remove the harmless `Component-preload.js` 404s.) `mta.yaml`, HANA HDI, XSUAA, app router / managed approuter, `SECRET_KEY` provisioning (user-provided service or env).
 5. ⬜ Verify artifact entity-set names against a real tenant (MessageMapping / ScriptCollection).
-6. ⬜ Known: `tsc --noEmit` reports type-resolution errors with the scaffolded TypeScript 7 config; runtime (tsx) is fine. Fix tooling before CI.
+6. ✅ `tsc` type check fixed (`types` must be listed explicitly with TypeScript 7; `UPDATE.entity(...)`); `npm run typecheck` passes.
 7. ⬜ Ideas for next features: _(add here)_
 
 ## 8. Changelog
+- 2026-10-16: deployment prepared (MTA, approuter, XSUAA role collections `CiToolkitViewer`/`CiToolkitAdmin`, HDI, `ci-toolkit-secrets`), TypeScript build fixed, CSRF token handling in Version Comparator, `docs/deployment.md`.
 - 2026-10-15: added README.md, AGENTS.md and docs/adding-a-feature.md; project put under git.
 - 2026-10-15: breadcrumbs in the launcher; side-nav always opens a feature's start page; type-ahead search in Version Comparator dropdowns.
 - 2026-10-15: UI added (launcher shell, Configuration FE app, Version Comparator UI5 app); `Connections` made draft-enabled; `Features` got `component`/`componentUrl`; `test`/`setSecret` return user messages.

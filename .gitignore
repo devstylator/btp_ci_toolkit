@@ -5,3 +5,7 @@ node_modules/
 .DS_Store
 .env
 default-env.json
+gen/
+*.mtar
+mta_archives/
+approuter/node_modules/

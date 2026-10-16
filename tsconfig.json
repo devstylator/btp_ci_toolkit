@@ -16,6 +16,10 @@
       "#cds-models/*": [
         "./@cds-models/*"
       ]
-    }
+    },
+    "types": [
+      "node",
+      "@cap-js/cds-types"
+    ]
   }
 }

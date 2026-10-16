@@ -1,0 +1,93 @@
+_schema-version: 3.3.0
+ID: btp-ci-toolkit
+version: 1.0.0
+description: "Custom cockpit for SAP Integration Suite (CPI)"
+parameters:
+  enable-parallel-deployments: true
+build-parameters:
+  before-all:
+    - builder: custom
+      commands:
+        - npm ci
+        - npx cds build --production
+        # the UI is served by the CAP server (same behaviour as locally)
+        - node scripts/copy-ui.mjs
+modules:
+  - name: btp-ci-toolkit-srv
+    type: nodejs
+    path: gen/srv
+    parameters:
+      instances: 1
+      buildpack: nodejs_buildpack
+      memory: 512M
+      disk-quota: 512M
+    build-parameters:
+      builder: npm-ci
+    provides:
+      - name: srv-api # required by consumers of CAP services (e.g. approuter)
+        properties:
+          srv-url: ${default-url}
+    requires:
+      - name: btp-ci-toolkit-auth
+      - name: btp-ci-toolkit-db
+      - name: ci-toolkit-secrets
+
+  - name: btp-ci-toolkit-db-deployer
+    type: hdb
+    path: gen/db
+    parameters:
+      buildpack: nodejs_buildpack
+      memory: 256M
+      disk-quota: 1G
+    requires:
+      - name: btp-ci-toolkit-db
+
+  - name: btp-ci-toolkit
+    type: approuter.nodejs
+    path: approuter
+    parameters:
+      keep-existing-routes: true
+      disk-quota: 256M
+      memory: 256M
+    requires:
+      - name: srv-api
+        group: destinations
+        properties:
+          name: srv-api # must be used in xs-app.json as well
+          url: ~{srv-url}
+          forwardAuthToken: true
+      - name: btp-ci-toolkit-auth
+    provides:
+      - name: app-api
+        properties:
+          app-protocol: ${protocol}
+          app-uri: ${default-uri}
+
+resources:
+  - name: btp-ci-toolkit-auth
+    type: org.cloudfoundry.managed-service
+    parameters:
+      service: xsuaa
+      service-plan: application
+      path: ./xs-security.json
+      config:
+        xsappname: btp-ci-toolkit-${org}-${space}
+        tenant-mode: dedicated
+        oauth2-configuration:
+          credential-types:
+            - "binding-secret"
+            - "x509"
+          redirect-uris:
+            - https://*~{app-api/app-uri}/**
+    requires:
+      - name: app-api
+
+  - name: btp-ci-toolkit-db
+    type: com.sap.xs.hdi-container
+    parameters:
+      service: hana
+      service-plan: hdi-shared
+
+  # Holds SECRET_KEY (encrypts the stored client secrets). Created once by hand, see docs/deployment.md
+  - name: ci-toolkit-secrets
+    type: org.cloudfoundry.existing-service

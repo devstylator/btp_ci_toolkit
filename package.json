@@ -8,17 +8,20 @@
     "@sap/xssec": "^4"
   },
   "devDependencies": {
-    "@cap-js/sqlite": "^3",
+    "@cap-js/cds-typer": ">=0.1",
     "@cap-js/cds-types": "^0.18.0",
+    "@cap-js/sqlite": "^3",
+    "@sap/cds-dk": "^10",
     "@types/node": "^24.0.0",
     "tsx": "^4",
-    "typescript": "^7.0.0",
-    "@cap-js/cds-typer": ">=0.1"
+    "typescript": "^7.0.0"
   },
   "scripts": {
     "start": "cds-serve",
     "watch": "cds watch",
-    "deploy:local": "cds deploy --to sqlite:db.sqlite"
+    "deploy:local": "cds deploy --to sqlite:db.sqlite",
+    "build": "cds build --production",
+    "typecheck": "tsc --noEmit -p ."
   },
   "private": true,
   "imports": {
@@ -56,5 +59,8 @@
         "auth": "xsuaa"
       }
     }
+  },
+  "engines": {
+    "node": "^22 || ^24"
   }
 }

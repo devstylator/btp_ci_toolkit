@@ -20,7 +20,7 @@ export default class ConfigService extends cds.ApplicationService {
       const code = req.params[0]?.code ?? req.params[0]
       const secret = req.data.secret
       if (!secret) return req.reject(400, 'secret must not be empty')
-      await UPDATE(DB_CONNECTIONS).set({ clientSecretEnc: encrypt(secret) }).where({ code })
+      await UPDATE.entity(DB_CONNECTIONS).set({ clientSecretEnc: encrypt(secret) }).where({ code })
       req.notify('Client secret saved')
       return true
     })
@@ -44,7 +44,7 @@ export default class ConfigService extends cds.ApplicationService {
         ok = false
         message = e.message
       }
-      await UPDATE(DB_CONNECTIONS)
+      await UPDATE.entity(DB_CONNECTIONS)
         .set({ lastTestAt: new Date().toISOString(), lastTestOk: ok, lastTestMessage: message.slice(0, 500) })
         .where({ code })
       if (ok) req.notify(message)

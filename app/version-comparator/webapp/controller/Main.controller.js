@@ -42,15 +42,35 @@ sap.ui.define([
       return this.getView().getModel("i18n").getResourceBundle().getText(key, args);
     },
 
+    // The approuter (CF) rejects POSTs without a CSRF token; locally the header is simply absent.
+    async _csrfToken() {
+      if (this._token === undefined) {
+        try {
+          const res = await fetch(this._baseUrl, { method: "HEAD", headers: { "X-CSRF-Token": "Fetch" } });
+          this._token = res.headers.get("X-CSRF-Token") || "";
+        } catch (e) {
+          this._token = "";
+        }
+      }
+      return this._token;
+    },
+
     async _request(path, options) {
+      const headers = { Accept: "application/json", "Content-Type": "application/json" };
+      if (options && options.method === "POST") {
+        const token = await this._csrfToken();
+        if (token) {
+          headers["X-CSRF-Token"] = token;
+        }
+      }
       let res;
       try {
-        res = await fetch(`${this._baseUrl}${path}`, {
-          ...options,
-          headers: { Accept: "application/json", "Content-Type": "application/json" }
-        });
+        res = await fetch(`${this._baseUrl}${path}`, { ...options, headers });
       } catch (e) {
         throw new Error(e.message);
+      }
+      if (res.status === 403 && options && options.method === "POST") {
+        this._token = undefined; // token expired, fetch a new one on the next call
       }
       if (!res.ok) {
         let message = `HTTP ${res.status}`;
