@@ -59,6 +59,12 @@ Open the approuter URL -> **Configuration** -> DEV -> *Edit* -> fill in tenant U
 *Set client secret* -> *Test connection*. Repeat for PROD. Then use **Version Comparator**.
 (Values come from the service key of the Integration Suite runtime `api` plan: `url`, `tokenurl`, `clientid`, `clientsecret`.)
 
+## Current deployment (trial)
+
+- Org/space: `48a865d4trial` / `dev` (region ap21), URL: https://48a865d4trial-dev-btp-ci-toolkit.cfapps.ap21.hana.ondemand.com
+- HANA Cloud instance `trial-hana` (plan `hana-free`), mapped to the org/space. **Trial instances stop every night**: start it in
+  HANA Cloud Central before using the app, otherwise the server cannot reach its database.
+
 ## Operations
 
 | Task | Command |

@@ -93,12 +93,13 @@ GitHub: https://github.com/devstylator/btp_ci_toolkit (branch `main`). Docs: [RE
 2. ✅ Owner reviewed DB model + OData.
 3. ✅ UI: launcher (http://localhost:4004/ -> `/launcher/webapp/index.html`), Configuration (FE), Version Comparator.
 3a. 🚧 Owner reviews the UI; verify against real tenants (local DB `db.sqlite`, configure DEV/PROD in the Configuration page).
-4. 🚧 Deployment: files ready (`mta.yaml`, `approuter/`, `scripts/copy-ui.mjs`, `docs/deployment.md`), MTAR builds and the production bundle was smoke-tested locally. **Not yet deployed**: waiting for a HANA Cloud instance mapped to the CF space (trial account `48a865d4trial`/`dev`, region ap21: the `hana` offering exists but there is no database available). Remaining after HANA: create `ci-toolkit-secrets`, `cf deploy`, assign role collections, test against real tenants. (Optional later: UI5 build/preload to remove the harmless `Component-preload.js` 404s.) `mta.yaml`, HANA HDI, XSUAA, app router / managed approuter, `SECRET_KEY` provisioning (user-provided service or env).
+4. ✅ Deployed to CF (trial `48a865d4trial` / `dev`, ap21, 2026-10-16): https://48a865d4trial-dev-btp-ci-toolkit.cfapps.ap21.hana.ondemand.com . HANA Cloud instance `trial-hana` (hana-free) mapped to the org/space. `ci-toolkit-secrets` created with a random key. Remaining: assign role collections, configure DEV/PROD on the CF app, test against real tenants. Note: trial HANA instances stop nightly - start `trial-hana` before using the app. (Optional later: UI5 build/preload to remove the harmless `Component-preload.js` 404s.)
 5. ⬜ Verify artifact entity-set names against a real tenant (MessageMapping / ScriptCollection).
 6. ✅ `tsc` type check fixed (`types` must be listed explicitly with TypeScript 7; `UPDATE.entity(...)`); `npm run typecheck` passes.
 7. ⬜ Ideas for next features: _(add here)_
 
 ## 8. Changelog
+- 2026-10-16: first deployment to Cloud Foundry (MTA `btp-ci-toolkit` 1.0.0).
 - 2026-10-16: deployment prepared (MTA, approuter, XSUAA role collections `CiToolkitViewer`/`CiToolkitAdmin`, HDI, `ci-toolkit-secrets`), TypeScript build fixed, CSRF token handling in Version Comparator, `docs/deployment.md`.
 - 2026-10-15: added README.md, AGENTS.md and docs/adding-a-feature.md; project put under git.
 - 2026-10-15: breadcrumbs in the launcher; side-nav always opens a feature's start page; type-ahead search in Version Comparator dropdowns.
