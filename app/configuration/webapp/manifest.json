@@ -31,7 +31,8 @@
     "routing": {
       "routes": [
         { "pattern": ":?query:", "name": "ConnectionsList", "target": "ConnectionsList" },
-        { "pattern": "Connections({key}):?query:", "name": "ConnectionsObjectPage", "target": "ConnectionsObjectPage" }
+        { "pattern": "Connections({key}):?query:", "name": "ConnectionsObjectPage", "target": "ConnectionsObjectPage" },
+        { "pattern": "ScriptExecutor({key}):?query:", "name": "ScriptExecutorObjectPage", "target": "ScriptExecutorObjectPage" }
       ],
       "targets": {
         "ConnectionsList": {
@@ -44,7 +45,16 @@
               "variantManagement": "None",
               "initialLoad": "Enabled",
               "hideFilterBar": true,
-              "navigation": { "Connections": { "detail": { "route": "ConnectionsObjectPage" } } }
+              "views": {
+                "paths": [
+                  { "key": "connections", "annotationPath": "com.sap.vocabularies.UI.v1.SelectionPresentationVariant#Connections" },
+                  { "key": "executor", "entitySet": "ScriptExecutor", "annotationPath": "com.sap.vocabularies.UI.v1.SelectionPresentationVariant#Executor" }
+                ]
+              },
+              "navigation": {
+                "Connections": { "detail": { "route": "ConnectionsObjectPage" } },
+                "ScriptExecutor": { "detail": { "route": "ScriptExecutorObjectPage" } }
+              }
             }
           }
         },
@@ -55,6 +65,31 @@
           "options": {
             "settings": {
               "contextPath": "/Connections",
+              "editableHeaderContent": false,
+              "content": {
+                "header": {
+                  "actions": {
+                    "SetSecret": {
+                      "press": "btp.toolkit.configuration.ext.SecretAction.onSetSecret",
+                      "text": "Set client secret",
+                      "enabled": "{= !${ui>/isEditable} }",
+                      "visible": "btp.toolkit.configuration.ext.SecretAction.isDirectConnection",
+                      "placement": "After",
+                      "anchor": "DataFieldForAction::ConfigService.test"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "ScriptExecutorObjectPage": {
+          "type": "Component",
+          "id": "ScriptExecutorObjectPage",
+          "name": "sap.fe.templates.ObjectPage",
+          "options": {
+            "settings": {
+              "contextPath": "/ScriptExecutor",
               "editableHeaderContent": false,
               "content": {
                 "header": {

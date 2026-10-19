@@ -14,10 +14,10 @@ Conventions:
 - Backend in TypeScript (ESM, `.js` import suffix), run through `tsx` (`npm run watch`). Frontend is plain UI5 JavaScript
   (UI5 1.136.0 from the CDN); Fiori Elements where it fits, freeform UI5 otherwise.
 - Reuse `srv/lib` (CPI client, connection loader, crypto). Never log or return client secrets.
-- Roles: scopes `Viewer` (use tools) and `Admin` (configuration, includes Viewer); BTP role templates/collections `CiToolkitViewer` / `CiToolkitAdmin`. Keep `@requires`, registry `roles` and `xs-security.json` consistent.
+- Roles: scopes `Viewer` (use tools), `Admin` (configuration, includes Viewer) and `Developer` (Groovy IDE edit/run, includes Viewer); BTP role templates/collections `CiToolkitViewer` / `CiToolkitAdmin` / `CiToolkitDeveloper`. Keep `@requires`, registry `roles` and `xs-security.json` consistent.
 - Run `npm run typecheck` before committing (TypeScript 7: `types` are listed explicitly in `tsconfig.json`).
 - Do not persist comparison results or other data unless a requirement says so.
-- Local dev users: `alice/alice` (Admin, Viewer), `bob/bob` (Viewer). Local DB `db.sqlite` is git-ignored; reset with
+- Local dev users: `alice/alice` (Admin, Viewer, Developer), `bob/bob` (Viewer). Local DB `db.sqlite` is git-ignored; reset with
   `rm db.sqlite* && npm run deploy:local`.
 - Verify changes by running the app and checking the OData and UI, not only by compiling. Clean up temporary fake services and test data.
 - Commits: small and focused, imperative message, keep the `Co-authored-by` trailer when requested by the tooling.

@@ -1,0 +1,40 @@
+.gidePage .gidePane {
+  border-right: 1px solid var(--sapGroup_TitleBorderColor);
+}
+
+/* stretched IconTabBars are absolutely positioned; splitter panes are not, so keep them in the flow */
+.gideTabs.sapMITBStretch {
+  position: relative;
+  height: 100%;
+}
+
+.gideTabs.sapMITBStretch.sapMFlexItem {
+  height: auto;
+}
+
+.gideDiff {
+  font-family: var(--sapFontFamilyMono, monospace);
+  font-size: 0.8125rem;
+  white-space: pre;
+  overflow: auto;
+  height: 100%;
+  padding: 0.5rem;
+  box-sizing: border-box;
+}
+
+.gideDiffAdd {
+  background: var(--sapSuccessBackground);
+  color: var(--sapPositiveTextColor);
+}
+
+.gideDiffDel {
+  background: var(--sapErrorBackground);
+  color: var(--sapNegativeTextColor);
+}
+
+/* dialog body that fills a non-scrolling dialog, so code editors can grow */
+.gideDialogBody {
+  height: 100%;
+  box-sizing: border-box;
+  padding: 1rem;
+}

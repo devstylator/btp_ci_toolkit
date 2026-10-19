@@ -7,7 +7,7 @@ The app is deployed as one MTA (`mta.yaml`) consisting of:
 | `btp-ci-toolkit-srv` | Node.js app (`gen/srv`) | CAP server: OData services **and** the UI (`app/` is copied into the bundle) |
 | `btp-ci-toolkit-db-deployer` | HDI deployer (`gen/db`) | Creates/updates the tables in HANA Cloud (also loads the DEV/PROD seed rows) |
 | `btp-ci-toolkit` | Approuter (`approuter/`) | The only public entry point: login (XSUAA), forwards everything to the CAP server with the user's token |
-| `btp-ci-toolkit-auth` | XSUAA (`xs-security.json`) | Scopes `Viewer`/`Admin`, role templates and **role collections `CiToolkitViewer` / `CiToolkitAdmin`** |
+| `btp-ci-toolkit-auth` | XSUAA (`xs-security.json`) | Scopes `Viewer`/`Admin`/`Developer`, role templates and **role collections `CiToolkitViewer` / `CiToolkitAdmin` / `CiToolkitDeveloper`** |
 | `btp-ci-toolkit-db` | HDI container (`hana`, `hdi-shared`) | The database schema |
 | `btp-ci-toolkit-destination` | Destination (`destination`, `lite`) | Resolves named CPI destinations on the CAP server |
 | `ci-toolkit-secrets` | user-provided service | Holds `SECRET_KEY` (not in git) |
@@ -51,8 +51,12 @@ approuter is printed at the end (`btp-ci-toolkit-<org>-<space>`-style route or `
 
 ## 3. Assign roles
 
-BTP cockpit -> Security -> Role Collections: the deployment created **`CiToolkitViewer`** and **`CiToolkitAdmin`**.
-Assign them to your user (and your identity provider group, if used). Admin includes Viewer.
+BTP cockpit -> Security -> Role Collections: the deployment created **`CiToolkitViewer`**, **`CiToolkitAdmin`** and
+**`CiToolkitDeveloper`**. Assign them to your user (and your identity provider group, if used). Admin and Developer
+include Viewer; Developer (edit and run Groovy IDE scripts) is not part of Admin.
+
+The Groovy IDE additionally needs the script-runner iFlow on an isolated DEV/trial tenant and the executor settings
+(Configuration > Script executor): see [groovy-ide.md](groovy-ide.md).
 Log out and in again after changing roles (new token).
 
 ## 4. First use
@@ -104,6 +108,8 @@ This adds the three new columns to the active and draft connection tables and re
 it can safely be rerun.
 `deploy:local` recreates tables and reloads seed data, so reserve it for new/reset databases.
 For HANA use your normal backup and full MTA deployment process. The existing seed CSV is unchanged.
+The Groovy IDE adds tables (scripts, versions, test cases, executor settings); HDI creates them on deployment and
+`npm run upgrade:local` creates them locally. The executor row is created on first read, not from seed data.
 After deployment, verify the existing DEV/PROD settings and test both.
 Keep `ci-toolkit-secrets` and its key while any stored direct credentials are retained.
 

@@ -9,6 +9,7 @@ Current features:
 | Feature | What it does |
 |---------|--------------|
 | **Version Comparator** | Compares package / artifact versions between the DEV and PROD tenants (version numbers only), with a status per item (match, differs, missing in DEV/PROD) and a step log. Nothing is stored. |
+| **Groovy IDE** | GroovyIDE-like editor for CPI Groovy scripts: run them on a script-runner iFlow (body, headers, properties, console), save scripts with versions and test cases in the app DB, download scripts read only from DEV iFlows / Script Collections. See [docs/groovy-ide.md](docs/groovy-ide.md). |
 | **Configuration** | Maintains DEV/PROD connections using direct credentials (encrypted secret) or a BTP Destination, with enabled and Allow CPI modifications switches and a "Test connection" action. |
 
 ## Quick start (local)
@@ -25,8 +26,8 @@ Open http://localhost:4004/ and log in with a mocked local user:
 
 | User | Password | Roles | Can |
 |------|----------|-------|-----|
-| `alice` | `alice` | Admin, Viewer | everything, including Configuration |
-| `bob` | `bob` | Viewer | use tools (Version Comparator), not Configuration |
+| `alice` | `alice` | Admin, Viewer, Developer | everything, including Configuration and running Groovy scripts |
+| `bob` | `bob` | Viewer | use tools (Version Comparator, Groovy IDE read only), not Configuration |
 
 Then, as `alice`: **Configuration** -> pick DEV -> *Edit* -> fill tenant URL, token URL, client ID -> *Save* ->
 *Set client secret* -> *Test connection*. Repeat for PROD. Local runs talk to the **real** tenants.
@@ -58,12 +59,13 @@ app/
   launcher/webapp/        shell: side navigation, breadcrumbs, loads feature UIs on demand
   configuration/          Fiori Elements app (Configuration)
   version-comparator/webapp/  freeform UI5 app
+  groovy-ide/webapp/      freeform UI5 app (Groovy IDE, sap.ui.codeeditor)
 docs/adding-a-feature.md  how to add a feature (the plugin recipe)
 docs/deployment.md        deploying to Cloud Foundry
 mta.yaml, approuter/      deployment descriptor and the approuter (login, routing)
 scripts/copy-ui.mjs       build helper: puts the UI into the server bundle
 requirements.md           living requirements, decisions, status, roadmap
-xs-security.json          XSUAA roles: Viewer, Admin
+xs-security.json          XSUAA roles: Viewer, Admin, Developer
 ```
 
 ## How the plugin mechanism works
@@ -82,8 +84,9 @@ Details and templates: **[docs/adding-a-feature.md](docs/adding-a-feature.md)**.
 | Path | Roles | Purpose |
 |------|-------|---------|
 | `/odata/v4/features` | any authenticated user | feature list for the side navigation |
-| `/odata/v4/config` | Admin | `Connections` (DEV/PROD, draft-enabled), actions `test`, `setSecret` |
+| `/odata/v4/config` | Admin | `Connections` (DEV/PROD) and `ScriptExecutor` (Groovy IDE runner), draft-enabled, actions `test`, `setSecret` |
 | `/odata/v4/version-comparator` | Viewer, Admin | `listPackages()`, `listArtifacts(packageId)`, `compare(packageId, artifactId?)` |
+| `/odata/v4/groovy-ide` | Viewer (read), Developer | `Scripts`, `ScriptVersions`, `TestCases`, `saveVersion`, `run`, `runTests`, `executorStatus()`, DEV download value helps |
 
 Metadata: `http://localhost:4004/odata/v4/<service>/$metadata`.
 
@@ -97,7 +100,9 @@ Tests use an in-memory database and a temporary local CPI fixture; they do not c
   `ci-toolkit-secrets` (see the deployment guide); secret handling fails in production without it. Locally a fixed
   development key is used.
 - Local authentication is mocked; on BTP the app uses XSUAA (`xs-security.json`). Assign the role collections
-  `CiToolkitViewer` / `CiToolkitAdmin` to users.
+  `CiToolkitViewer` / `CiToolkitAdmin` / `CiToolkitDeveloper` to users.
+- The Groovy IDE runs arbitrary Groovy code on the configured runner iFlow; deploy that iFlow only on an isolated
+  development/trial tenant ([docs/groovy-ide.md](docs/groovy-ide.md)).
 
 ## Status and roadmap
 

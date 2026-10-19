@@ -1,0 +1,376 @@
+<mvc:View
+  controllerName="btp.toolkit.groovyide.controller.Main"
+  xmlns="sap.m"
+  xmlns:mvc="sap.ui.core.mvc"
+  xmlns:core="sap.ui.core"
+  xmlns:l="sap.ui.layout"
+  xmlns:f="sap.ui.layout.form"
+  xmlns:ce="sap.ui.codeeditor"
+  xmlns:app="http://schemas.sap.com/sapui5/extension/sap.ui.core.CustomData/1"
+  height="100%">
+  <Page id="page" showHeader="false" enableScrolling="false" busy="{view>/busy}" busyIndicatorDelay="300" class="gidePage">
+    <subHeader>
+      <OverflowToolbar>
+        <Title text="{= ${view>/script} ? ${view>/script/name} : ${i18n>scratchpad} }" level="H2"/>
+        <ObjectStatus text="{i18n>unsaved}" state="Warning" visible="{view>/dirty}"/>
+        <ObjectStatus text="{i18n>readOnly}" state="Information" visible="{= !${view>/canEdit} }"/>
+        <ToolbarSpacer/>
+        <Button icon="sap-icon://add-document" text="{i18n>new}" press=".onNew" visible="{view>/canEdit}"/>
+        <Button icon="sap-icon://download" text="{i18n>importFromCpi}" press=".onOpenImport"/>
+        <Button icon="sap-icon://save" text="{i18n>save}" tooltip="{i18n>saveTooltip}" press=".onSave" visible="{view>/canEdit}"/>
+        <Button icon="sap-icon://history" text="{i18n>versions}" press=".onOpenVersions" enabled="{= !!${view>/script} }"/>
+        <Button icon="sap-icon://edit" tooltip="{i18n>editDetails}" press=".onEditDetails" visible="{view>/canEdit}" enabled="{= !!${view>/script} }"/>
+        <Button icon="sap-icon://delete" tooltip="{i18n>deleteScript}" press=".onDeleteScript" visible="{view>/canEdit}" enabled="{= !!${view>/script} }"/>
+        <ToolbarSeparator/>
+        <Button
+          icon="sap-icon://media-play"
+          text="{i18n>run}"
+          tooltip="{i18n>runTooltip}"
+          type="Emphasized"
+          press=".onRun"
+          visible="{view>/canEdit}"
+          enabled="{view>/executorEnabled}"/>
+      </OverflowToolbar>
+    </subHeader>
+    <content>
+      <VBox height="100%" renderType="Bare">
+        <MessageStrip
+          text="{view>/error}"
+          type="Error"
+          showIcon="true"
+          showCloseButton="true"
+          close=".onCloseError"
+          visible="{= !!${view>/error} }"/>
+        <MessageStrip
+          text="{i18n>executorDisabled}"
+          type="Information"
+          showIcon="true"
+          visible="{= ${view>/canEdit} &amp;&amp; ${view>/statusLoaded} &amp;&amp; !${view>/executorEnabled} }"/>
+
+        <l:Splitter height="100%" width="100%">
+          <l:layoutData><FlexItemData growFactor="1" minHeight="0"/></l:layoutData>
+
+          <!-- saved scripts -->
+          <VBox height="100%" renderType="Bare" class="gidePane">
+            <layoutData><l:SplitterLayoutData size="17rem" minSize="160"/></layoutData>
+            <SearchField value="{view>/search}" liveChange=".onSearch" placeholder="{i18n>searchScripts}" width="100%"/>
+            <ScrollContainer vertical="true" height="100%">
+              <layoutData><FlexItemData growFactor="1" minHeight="0"/></layoutData>
+              <List
+                id="scriptList"
+                mode="SingleSelectMaster"
+                items="{path: 'view>/scripts', sorter: {path: 'name'}}"
+                selectionChange=".onSelectScript"
+                noDataText="{i18n>noScripts}">
+                <StandardListItem
+                  title="{view>name}"
+                  description="{path: 'view>', formatter: '.formatter.sourceText'}"
+                  icon="{path: 'view>sourceType', formatter: '.formatter.sourceIcon'}"
+                  info="{view>modifiedBy}"
+                  tooltip="{view>description}"/>
+              </List>
+            </ScrollContainer>
+          </VBox>
+
+          <!-- script editor -->
+          <VBox height="100%" renderType="Bare" class="gidePane">
+            <layoutData><l:SplitterLayoutData size="auto" minSize="300"/></layoutData>
+            <Toolbar design="Transparent" height="2rem">
+              <Label text="{i18n>script}" design="Bold"/>
+              <ToolbarSpacer/>
+              <Text text="{path: 'view>/script', formatter: '.formatter.sourceText'}" visible="{= !!${view>/script} }" class="sapUiTinyMarginEnd"/>
+            </Toolbar>
+            <ce:CodeEditor
+              id="scriptEditor"
+              type="groovy"
+              colorTheme="tomorrow_night"
+              value="{path: 'view>/content', mode: 'OneWay'}"
+              liveChange=".onScriptLiveChange"
+              editable="{view>/canEdit}"
+              height="100%"
+              lineNumbers="true">
+              <ce:layoutData><FlexItemData growFactor="1" minHeight="0"/></ce:layoutData>
+            </ce:CodeEditor>
+          </VBox>
+
+          <!-- input / output -->
+          <l:Splitter orientation="Vertical" height="100%">
+            <l:layoutData><l:SplitterLayoutData size="40%" minSize="320"/></l:layoutData>
+
+            <IconTabBar selectedKey="{view>/inputTab}" stretchContentHeight="true" applyContentPadding="false" expandable="false" headerMode="Inline" class="gideTabs">
+              <layoutData><l:SplitterLayoutData size="50%" minSize="120"/></layoutData>
+              <items>
+                <IconTabFilter key="body" text="{i18n>inputBody}">
+                  <ce:CodeEditor
+                    id="inputBodyEditor"
+                    type="{view>/input/bodyType}"
+                    colorTheme="tomorrow_night"
+                    value="{path: 'view>/input/body', mode: 'OneWay'}"
+                    liveChange=".onInputBodyLiveChange"
+                    height="100%"/>
+                </IconTabFilter>
+                <IconTabFilter key="headers" text="{i18n>headers}" count="{= ${view>/input/headers}.length }">
+                  <ScrollContainer vertical="true" height="100%">
+                    <Table items="{view>/input/headers}" noDataText="{i18n>noEntries}">
+                      <headerToolbar>
+                        <Toolbar><ToolbarSpacer/><Button icon="sap-icon://add" text="{i18n>add}" press=".onAddEntry" app:list="headers"/></Toolbar>
+                      </headerToolbar>
+                      <columns>
+                        <Column><Text text="{i18n>name}"/></Column>
+                        <Column><Text text="{i18n>value}"/></Column>
+                        <Column width="3rem"/>
+                      </columns>
+                      <items>
+                        <ColumnListItem>
+                          <Input value="{view>name}"/>
+                          <Input value="{view>value}"/>
+                          <Button icon="sap-icon://decline" type="Transparent" press=".onRemoveEntry" app:list="headers"/>
+                        </ColumnListItem>
+                      </items>
+                    </Table>
+                  </ScrollContainer>
+                </IconTabFilter>
+                <IconTabFilter key="properties" text="{i18n>properties}" count="{= ${view>/input/properties}.length }">
+                  <ScrollContainer vertical="true" height="100%">
+                    <Table items="{view>/input/properties}" noDataText="{i18n>noEntries}">
+                      <headerToolbar>
+                        <Toolbar><ToolbarSpacer/><Button icon="sap-icon://add" text="{i18n>add}" press=".onAddEntry" app:list="properties"/></Toolbar>
+                      </headerToolbar>
+                      <columns>
+                        <Column><Text text="{i18n>name}"/></Column>
+                        <Column><Text text="{i18n>value}"/></Column>
+                        <Column width="3rem"/>
+                      </columns>
+                      <items>
+                        <ColumnListItem>
+                          <Input value="{view>name}"/>
+                          <Input value="{view>value}"/>
+                          <Button icon="sap-icon://decline" type="Transparent" press=".onRemoveEntry" app:list="properties"/>
+                        </ColumnListItem>
+                      </items>
+                    </Table>
+                  </ScrollContainer>
+                </IconTabFilter>
+                <IconTabFilter key="tests" text="{i18n>testCases}" count="{= ${view>/testCases}.length }" enabled="{= !!${view>/script} }">
+                  <ScrollContainer vertical="true" height="100%">
+                    <Table items="{view>/testCases}" noDataText="{i18n>noTestCases}">
+                      <headerToolbar>
+                        <OverflowToolbar>
+                          <Text text="{view>/testSummary}" tooltip="{view>/testSummary}">
+                            <layoutData><ToolbarLayoutData shrinkable="true"/></layoutData>
+                          </Text>
+                          <ToolbarSpacer/>
+                          <Button icon="sap-icon://add" text="{i18n>saveTestCase}" press=".onOpenTestCaseDialog" visible="{view>/canEdit}">
+                            <layoutData><OverflowToolbarLayoutData priority="NeverOverflow"/></layoutData>
+                          </Button>
+                          <Button icon="sap-icon://media-play" text="{i18n>runAll}" press=".onRunTests" visible="{view>/canEdit}" enabled="{= ${view>/executorEnabled} &amp;&amp; ${view>/testCases}.length > 0 }">
+                            <layoutData><OverflowToolbarLayoutData priority="NeverOverflow"/></layoutData>
+                          </Button>
+                        </OverflowToolbar>
+                      </headerToolbar>
+                      <columns>
+                        <Column><Text text="{i18n>name}"/></Column>
+                        <Column width="9rem"><Text text="{i18n>result}"/></Column>
+                        <Column width="8.5rem" hAlign="End"/>
+                      </columns>
+                      <items>
+                        <ColumnListItem highlight="{= ${view>ID} === ${view>/loadedTestCaseId} ? 'Information' : 'None' }">
+                          <ObjectIdentifier title="{view>name}" text="{view>compareMode}"/>
+                          <ObjectStatus
+                            text="{path: 'view>lastStatus', formatter: '.formatter.testText'}"
+                            state="{path: 'view>lastStatus', formatter: '.formatter.testState'}"
+                            icon="{path: 'view>lastStatus', formatter: '.formatter.testIcon'}"
+                            active="{= !!${view>lastStatus} }"
+                            press=".onShowTestResult"/>
+                          <HBox justifyContent="End">
+                            <Button icon="sap-icon://open-command-field" type="Transparent" tooltip="{i18n>loadTestCase}" press=".onLoadTestCase"/>
+                            <Button icon="sap-icon://media-play" type="Transparent" tooltip="{i18n>runTestCase}" press=".onRunTestCase" visible="{view>/canEdit}" enabled="{view>/executorEnabled}"/>
+                            <Button icon="sap-icon://delete" type="Transparent" tooltip="{i18n>delete}" press=".onDeleteTestCase" visible="{view>/canEdit}"/>
+                          </HBox>
+                        </ColumnListItem>
+                      </items>
+                    </Table>
+                  </ScrollContainer>
+                </IconTabFilter>
+              </items>
+            </IconTabBar>
+
+            <VBox height="100%" renderType="Bare">
+              <layoutData><l:SplitterLayoutData size="auto" minSize="120"/></layoutData>
+              <Toolbar design="Transparent" height="2rem">
+                <Label text="{i18n>output}" design="Bold"/>
+                <ToolbarSpacer/>
+                <ObjectStatus
+                  visible="{view>/output/has}"
+                  text="{= (${view>/output/success} ? ${i18n>runOk} : ${i18n>runFailed}) + (${view>/output/httpStatus} ? ' · HTTP ' + ${view>/output/httpStatus} : '') + ' · ' + ${view>/output/durationMs} + ' ms' }"
+                  state="{= ${view>/output/success} ? 'Success' : 'Error' }"/>
+              </Toolbar>
+              <IconTabBar selectedKey="{view>/outputTab}" stretchContentHeight="true" applyContentPadding="false" expandable="false" headerMode="Inline" class="gideTabs">
+                <layoutData><FlexItemData growFactor="1" minHeight="0"/></layoutData>
+                <items>
+                  <IconTabFilter key="body" text="{i18n>outputBody}">
+                    <ce:CodeEditor
+                      type="{path: 'view>/output/body', formatter: '.formatter.bodyType'}"
+                      colorTheme="tomorrow_night"
+                      value="{view>/output/body}"
+                      editable="false"
+                      height="100%"/>
+                  </IconTabFilter>
+                  <IconTabFilter key="headers" text="{i18n>headers}" count="{= ${view>/output/headers}.length }">
+                    <ScrollContainer vertical="true" height="100%">
+                      <Table items="{view>/output/headers}" noDataText="{i18n>noEntries}">
+                        <columns><Column><Text text="{i18n>name}"/></Column><Column><Text text="{i18n>value}"/></Column></columns>
+                        <items><ColumnListItem><Text text="{view>name}"/><Text text="{view>value}" wrapping="true"/></ColumnListItem></items>
+                      </Table>
+                    </ScrollContainer>
+                  </IconTabFilter>
+                  <IconTabFilter key="properties" text="{i18n>properties}" count="{= ${view>/output/properties}.length }">
+                    <ScrollContainer vertical="true" height="100%">
+                      <Table items="{view>/output/properties}" noDataText="{i18n>noEntries}">
+                        <columns><Column><Text text="{i18n>name}"/></Column><Column><Text text="{i18n>value}"/></Column></columns>
+                        <items><ColumnListItem><Text text="{view>name}"/><Text text="{view>value}" wrapping="true"/></ColumnListItem></items>
+                      </Table>
+                    </ScrollContainer>
+                  </IconTabFilter>
+                  <IconTabFilter key="console" text="{i18n>console}">
+                    <ce:CodeEditor type="text" colorTheme="tomorrow_night" value="{view>/output/console}" editable="false" lineNumbers="false" height="100%"/>
+                  </IconTabFilter>
+                  <IconTabFilter key="error" text="{i18n>error}" iconColor="Negative" visible="{= !!${view>/output/error} }">
+                    <ce:CodeEditor type="text" colorTheme="tomorrow_night" value="{view>/output/error}" editable="false" lineNumbers="false" height="100%"/>
+                  </IconTabFilter>
+                </items>
+              </IconTabBar>
+            </VBox>
+          </l:Splitter>
+        </l:Splitter>
+      </VBox>
+    </content>
+
+    <dependents>
+      <!-- script name / description (new and edit) -->
+      <Dialog id="detailsDialog" title="{view>/details/title}" contentWidth="28rem" class="sapUiContentPadding">
+        <f:SimpleForm editable="true" layout="ResponsiveGridLayout" labelSpanM="4">
+          <Label text="{i18n>name}" required="true"/>
+          <Input value="{view>/details/name}" maxLength="120" submit=".onSaveDetails"/>
+          <Label text="{i18n>description}"/>
+          <TextArea value="{view>/details/description}" maxLength="500" rows="3"/>
+        </f:SimpleForm>
+        <beginButton><Button text="{i18n>ok}" type="Emphasized" press=".onSaveDetails" enabled="{= !!${view>/details/name} }"/></beginButton>
+        <endButton><Button text="{i18n>cancel}" press=".onCloseDialog" app:dialog="detailsDialog"/></endButton>
+      </Dialog>
+
+      <!-- download from CPI (DEV) -->
+      <Dialog id="importDialog" title="{i18n>importTitle}" contentWidth="70rem" contentHeight="75%" resizable="true" draggable="true" verticalScrolling="false">
+        <VBox renderType="Bare" class="gideDialogBody">
+          <HBox wrap="Wrap" alignItems="End" renderType="Bare">
+            <VBox class="sapUiSmallMarginEnd" renderType="Bare">
+              <Label text="{i18n>package}" labelFor="importPackage"/>
+              <ComboBox id="importPackage" width="20rem" items="{path: 'view>/import/packages', templateShareable: false}" selectedKey="{view>/import/packageId}"
+                selectionChange=".onImportPackageChange" showSecondaryValues="true" filterSecondaryValues="true" placeholder="{i18n>packagePlaceholder}">
+                <core:ListItem key="{view>id}" text="{view>id}" additionalText="{view>name}"/>
+              </ComboBox>
+            </VBox>
+            <VBox class="sapUiSmallMarginEnd" renderType="Bare">
+              <Label text="{i18n>artifact}" labelFor="importArtifact"/>
+              <ComboBox id="importArtifact" width="24rem" items="{path: 'view>/import/artifacts', templateShareable: false}" selectedKey="{view>/import/artifactKey}"
+                selectionChange=".onImportArtifactChange" enabled="{= !!${view>/import/packageId} }" showSecondaryValues="true" filterSecondaryValues="true">
+                <core:ListItem key="{view>key}" text="{view>name}" additionalText="{view>typeText} {view>version}"
+                  icon="{path: 'view>type', formatter: '.formatter.sourceIcon'}"/>
+              </ComboBox>
+            </VBox>
+            <Button icon="sap-icon://refresh" type="Transparent" tooltip="{i18n>reload}" press=".onImportReload"/>
+          </HBox>
+          <MessageStrip text="{view>/import/error}" type="Error" visible="{= !!${view>/import/error} }" class="sapUiSmallMarginTop"/>
+          <HBox height="100%" renderType="Bare" class="sapUiSmallMarginTop">
+            <layoutData><FlexItemData growFactor="1" minHeight="0"/></layoutData>
+            <ScrollContainer vertical="true" height="100%" width="22rem">
+              <List mode="SingleSelectMaster" items="{path: 'view>/import/files', templateShareable: false}" selectionChange=".onImportFileSelect"
+                noDataText="{i18n>noScriptsInArtifact}" busy="{view>/import/busy}">
+                <StandardListItem title="{view>file}" description="{view>folder}" icon="sap-icon://source-code"/>
+              </List>
+            </ScrollContainer>
+            <ce:CodeEditor type="groovy" colorTheme="tomorrow_night" value="{view>/import/preview}" editable="false" height="auto" width="100%">
+              <ce:layoutData><FlexItemData growFactor="1"/></ce:layoutData>
+            </ce:CodeEditor>
+          </HBox>
+        </VBox>
+        <beginButton>
+          <Button text="{i18n>importAction}" type="Emphasized" press=".onImport" visible="{view>/canEdit}" enabled="{= !!${view>/import/selected} }"/>
+        </beginButton>
+        <endButton><Button text="{i18n>close}" press=".onCloseDialog" app:dialog="importDialog"/></endButton>
+      </Dialog>
+
+      <!-- versions -->
+      <Dialog id="versionsDialog" title="{i18n>versionsTitle}" contentWidth="60rem" contentHeight="70%" resizable="true" draggable="true">
+        <VBox renderType="Bare" class="sapUiSmallMargin">
+          <HBox alignItems="End" visible="{view>/canEdit}" renderType="Bare" class="sapUiSmallMarginBottom">
+            <Input value="{view>/versionComment}" placeholder="{i18n>versionComment}" width="30rem" maxLength="500" submit=".onSaveVersion" class="sapUiSmallMarginEnd"/>
+            <Button text="{i18n>saveVersion}" icon="sap-icon://save" type="Emphasized" press=".onSaveVersion"/>
+          </HBox>
+          <Table items="{view>/versions}" noDataText="{i18n>noVersions}">
+            <columns>
+              <Column width="5rem"><Text text="{i18n>version}"/></Column>
+              <Column><Text text="{i18n>comment}"/></Column>
+              <Column width="11rem"><Text text="{i18n>createdBy}"/></Column>
+              <Column width="13rem"><Text text="{i18n>createdAt}"/></Column>
+              <Column width="8.5rem" hAlign="End"/>
+            </columns>
+            <items>
+              <ColumnListItem>
+                <ObjectNumber number="{view>version}" emphasized="true"/>
+                <Text text="{view>comment}"/>
+                <Text text="{view>createdBy}"/>
+                <Text text="{path: 'view>createdAt', formatter: '.formatter.dateTime'}"/>
+                <HBox justifyContent="End">
+                  <Button icon="sap-icon://compare" type="Transparent" tooltip="{i18n>compareWithEditor}" press=".onDiffVersion"/>
+                  <Button icon="sap-icon://undo" type="Transparent" tooltip="{i18n>restoreVersion}" press=".onRestoreVersion" visible="{view>/canEdit}"/>
+                  <Button icon="sap-icon://delete" type="Transparent" tooltip="{i18n>delete}" press=".onDeleteVersion" visible="{view>/canEdit}"/>
+                </HBox>
+              </ColumnListItem>
+            </items>
+          </Table>
+        </VBox>
+        <endButton><Button text="{i18n>close}" press=".onCloseDialog" app:dialog="versionsDialog"/></endButton>
+      </Dialog>
+
+      <!-- diff -->
+      <Dialog id="diffDialog" title="{view>/diff/title}" contentWidth="70rem" contentHeight="75%" resizable="true" draggable="true">
+        <core:HTML content="{view>/diff/html}" sanitizeContent="false"/>
+        <endButton><Button text="{i18n>close}" press=".onCloseDialog" app:dialog="diffDialog"/></endButton>
+      </Dialog>
+
+      <!-- save test case -->
+      <Dialog id="testCaseDialog" title="{i18n>saveTestCaseTitle}" contentWidth="44rem" contentHeight="32rem" resizable="true" verticalScrolling="false">
+        <VBox renderType="Bare" class="gideDialogBody">
+          <Text text="{i18n>testCaseHint}" class="sapUiSmallMarginBottom"/>
+          <Label text="{i18n>name}" required="true"/>
+          <Input value="{view>/testCase/name}" maxLength="120"/>
+          <Label text="{i18n>compareMode}" class="sapUiSmallMarginTop"/>
+          <SegmentedButton selectedKey="{view>/testCase/compareMode}">
+            <items>
+              <SegmentedButtonItem key="TRIMMED" text="{i18n>compareTRIMMED}"/>
+              <SegmentedButtonItem key="EXACT" text="{i18n>compareEXACT}"/>
+              <SegmentedButtonItem key="JSON" text="JSON"/>
+              <SegmentedButtonItem key="XML" text="XML"/>
+            </items>
+          </SegmentedButton>
+          <HBox alignItems="Center" class="sapUiSmallMarginTop" renderType="Bare">
+            <Label text="{i18n>expectedBody}" class="sapUiSmallMarginEnd"/>
+            <Button text="{i18n>useLastOutput}" type="Transparent" press=".onUseLastOutput" enabled="{view>/output/has}"/>
+          </HBox>
+          <ce:CodeEditor id="expectedEditor" type="{view>/testCase/expectedType}" colorTheme="tomorrow_night"
+            value="{path: 'view>/testCase/expectedBody', mode: 'OneWay'}" liveChange=".onExpectedLiveChange" height="auto">
+            <ce:layoutData><FlexItemData growFactor="1" minHeight="6rem"/></ce:layoutData>
+          </ce:CodeEditor>
+        </VBox>
+        <buttons>
+          <Button text="{i18n>updateTestCase}" type="Emphasized" press=".onSaveTestCase" visible="{= !!${view>/loadedTestCaseId} }"
+            enabled="{= !!${view>/testCase/name} }" app:mode="update"/>
+          <Button text="{i18n>saveAsNewTestCase}" type="{= ${view>/loadedTestCaseId} ? 'Default' : 'Emphasized' }" press=".onSaveTestCase"
+            enabled="{= !!${view>/testCase/name} }" app:mode="create"/>
+          <Button text="{i18n>cancel}" press=".onCloseDialog" app:dialog="testCaseDialog"/>
+        </buttons>
+      </Dialog>
+    </dependents>
+  </Page>
+</mvc:View>

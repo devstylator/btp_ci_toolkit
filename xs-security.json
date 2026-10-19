@@ -3,7 +3,8 @@
   "tenant-mode": "dedicated",
   "scopes": [
     { "name": "$XSAPPNAME.Viewer", "description": "Run CPI tools (e.g. version comparison)" },
-    { "name": "$XSAPPNAME.Admin", "description": "Edit configuration" }
+    { "name": "$XSAPPNAME.Admin", "description": "Edit configuration" },
+    { "name": "$XSAPPNAME.Developer", "description": "Edit Groovy IDE scripts and run them on the script executor" }
   ],
   "attributes": [],
   "role-templates": [
@@ -16,6 +17,11 @@
       "name": "CiToolkitAdmin",
       "description": "Administer configuration (includes viewer)",
       "scope-references": ["$XSAPPNAME.Admin", "$XSAPPNAME.Viewer"]
+    },
+    {
+      "name": "CiToolkitDeveloper",
+      "description": "Groovy IDE: edit and run scripts (includes viewer)",
+      "scope-references": ["$XSAPPNAME.Developer", "$XSAPPNAME.Viewer"]
     }
   ],
   "role-collections": [
@@ -28,6 +34,11 @@
       "name": "CiToolkitAdmin",
       "description": "BTP CI Toolkit: use the tools and edit the configuration",
       "role-template-references": ["$XSAPPNAME.CiToolkitAdmin"]
+    },
+    {
+      "name": "CiToolkitDeveloper",
+      "description": "BTP CI Toolkit: use the tools, edit and run Groovy IDE scripts",
+      "role-template-references": ["$XSAPPNAME.CiToolkitDeveloper"]
     }
   ],
   "authorities-inheritance": false

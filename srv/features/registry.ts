@@ -33,6 +33,19 @@ export const features: FeatureDescriptor[] = [
     roles: ['Viewer', 'Admin']
   },
   {
+    ID: 'groovy-ide',
+    title: 'Groovy IDE',
+    subtitle: 'Edit, version and test Groovy scripts on the CPI script runner',
+    icon: 'sap-icon://source-code',
+    route: 'groovy-ide',
+    component: 'btp.toolkit.groovyide',
+    componentUrl: '/groovy-ide/webapp',
+    service: '/odata/v4/groovy-ide',
+    position: 20,
+    group: 'FEATURE',
+    roles: ['Viewer', 'Developer']
+  },
+  {
     ID: 'configuration',
     title: 'Configuration',
     subtitle: 'DEV and PROD connections',

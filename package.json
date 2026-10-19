@@ -42,7 +42,8 @@
               "password": "alice",
               "roles": [
                 "Admin",
-                "Viewer"
+                "Viewer",
+                "Developer"
               ]
             },
             "bob": {
@@ -62,6 +63,11 @@
       },
       "[production]": {
         "auth": "xsuaa"
+      }
+    },
+    "server": {
+      "body_parser": {
+        "limit": "10mb"
       }
     }
   },

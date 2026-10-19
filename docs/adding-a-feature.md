@@ -45,9 +45,11 @@ service <Name>Service {
 
 Rules:
 - One service per feature, path `/odata/v4/<name>`.
-- Always set `@requires` (roles are `Viewer` = use tools, `Admin` = configuration + everything).
+- Always set `@requires` (roles are `Viewer` = use tools, `Admin` = configuration, `Developer` = Groovy IDE edit/run;
+  Admin and Developer both include Viewer).
   Use `@restrict` for finer control. Do not invent new roles without adding them to `xs-security.json`
-  (scope + role template + role collection, existing ones are `CiToolkitViewer`/`CiToolkitAdmin`) and `requirements.md`.
+  (scope + role template + role collection, existing ones are `CiToolkitViewer`/`CiToolkitAdmin`/`CiToolkitDeveloper`)
+  and `requirements.md`.
 - Prefer returning structured results (and a `log` array, like the comparator) over streaming.
 - No persistence unless the requirement says so (see decision D9 in `requirements.md`).
 
@@ -152,6 +154,13 @@ Pick one of two styles:
 `app/version-comparator/webapp/`: `Component.js` extends `sap/ui/core/UIComponent` with `manifest: "json"`,
 `rootView` in the manifest, an XML view + controller, JSON model and `fetch` against the OData service
 (plain JSON, no CSRF token needed). Use `sap.m` controls only, put texts in `i18n`.
+For a code editor use `sap.ui.codeeditor.CodeEditor` (see `app/groovy-ide/webapp/`). Gotchas learned there:
+- Bind its `value` **one-way** and read the text with `getCurrentValue()`. Ace fires `liveChange` with intermediate
+  values while (re-)rendering, so writing the model from `liveChange` (or changing `type` synchronously) ends in
+  "Rendering has been re-started too many times". Debounce `liveChange` and only update flags from it.
+- Formatters run before the view has the component's models; use `this.getOwnerComponent().getModel("i18n")`.
+- A stretched `IconTabBar` is absolutely positioned; inside `sap.ui.layout.Splitter` panes give it `position: relative`.
+- In a flex row (HBox) give the editor `height="auto"` so it stretches; percentage heights do not resolve there.
 
 Common requirements for both:
 - Do not touch the URL hash unless you are a Fiori Elements app (the hash belongs to the app; the launcher builds
@@ -164,7 +173,7 @@ Common requirements for both:
 ### Step 6 - verify
 
 ```bash
-npm run watch                          # http://localhost:4004 , mocked users alice/alice (Admin), bob/bob (Viewer)
+npm run watch                          # http://localhost:4004 , mocked users alice/alice (Admin, Developer), bob/bob (Viewer)
 curl -u bob:bob 'http://localhost:4004/odata/v4/features/Features'          # your entry is listed for allowed roles
 curl -u bob:bob 'http://localhost:4004/odata/v4/<name>/$metadata'          # service compiles
 ```
