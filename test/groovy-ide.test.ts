@@ -5,7 +5,7 @@ import { crc32, deflateRawSync } from 'node:zlib'
 import cds from '@sap/cds'
 import { encrypt } from '../srv/lib/crypto.js'
 import { readZip } from '../srv/lib/zip.js'
-import { bodiesMatch, buildRequest, encodeMap, parseMap, parseResponse } from '../srv/features/groovy-ide/contract.js'
+import { buildRequest, encodeMap, parseMap, parseResponse } from '../srv/features/groovy-ide/contract.js'
 
 const { UPDATE } = cds.ql
 let app: Server
@@ -144,10 +144,6 @@ test('runner contract helpers', () => {
   assert.deepEqual(failed.properties, [{ name: 'p', value: '1' }])
   assert.match(parseResponse(500, '<html/>').error, /HTTP 500/)
   assert.match(parseResponse(200, '<html/>').error, /unexpected response format/)
-  assert.ok(bodiesMatch('{"a":1,"b":[1,2]}', '{ "b": [1, 2], "a": 1 }', 'JSON'))
-  assert.ok(bodiesMatch('<?xml version="1.0"?>\n<a>\n  <b>1</b>\n</a>', '<a><b>1</b></a>', 'XML'))
-  assert.ok(bodiesMatch('x\r\n', 'x', 'TRIMMED'))
-  assert.ok(!bodiesMatch('x\n', 'x', 'EXACT'))
   assert.deepEqual(readZip(zip([{ path: 'a/b.groovy', content: 'abc' }, { path: 'c.txt', content: 'd', store: true }]))
     .map(e => [e.path, e.read().toString()]), [['a/b.groovy', 'abc'], ['c.txt', 'd']])
 })
@@ -228,7 +224,7 @@ test('groovy IDE service', async t => {
     assert.equal((await call("groovy-ide/listArtifactScripts(packageId='P1',type='IFLOW',artifactId='NOPE')")).status, 404)
   })
 
-  await t.test('scripts, versions and test cases are stored; runTests compares bodies', async () => {
+  await t.test('scripts, versions and saved inputs are stored; deleting a script removes them', async () => {
     const created = await call('groovy-ide/Scripts', 'POST', {
       name: 'transform', content: SCRIPT_TEXT, sourceType: 'IFLOW', sourceTenant: 'DEV', sourceArtifactId: 'IF1', sourcePath: SCRIPT_PATH
     })
@@ -244,21 +240,20 @@ test('groovy IDE service', async t => {
     assert.deepEqual(versions.body.value.map((v: any) => [v.version, v.content]), [[1, SCRIPT_TEXT], [2, 'v2 text']])
     assert.equal((await call(`groovy-ide/Scripts(${scriptId})/GroovyIdeService.saveVersion`, 'POST', {}, 'bob')).status, 403)
 
-    for (const tc of [
-      { name: 'a pass', payload: 'abc', expectedBody: 'ABC\n', compareMode: 'TRIMMED' },
-      { name: 'b fail', payload: 'abc', expectedBody: 'abc', compareMode: 'EXACT' },
-      { name: 'c none', payload: 'x', headers: JSON.stringify([{ name: 'h', value: '1' }]) }
-    ]) {
-      assert.equal((await call(`groovy-ide/Scripts(${scriptId})/testCases`, 'POST', tc)).status, 201)
-    }
-    assert.equal((await call(`groovy-ide/Scripts(${scriptId})/testCases`, 'POST', { name: 'bad', headers: '{' })).status, 400)
-    const results = await call('groovy-ide/runTests', 'POST', { scriptId, script: 'println 1', testCaseIds: [] })
-    assert.deepEqual(results.body.value.map((r: any) => [r.name, r.status]), [['a pass', 'PASSED'], ['b fail', 'FAILED'], ['c none', 'NO_EXPECTATION']])
-    const errored = await call('groovy-ide/runTests', 'POST', { scriptId, script: 'boom', testCaseIds: [results.body.value[0].testCaseId] })
-    assert.deepEqual(errored.body.value.map((r: any) => r.status), ['ERROR'])
+    const headers = JSON.stringify([{ name: 'h', value: '1' }])
+    const input = await call(`groovy-ide/Scripts(${scriptId})/inputs`, 'POST', { name: 'order', payload: '<a/>', headers })
+    assert.equal(input.status, 201)
+    assert.equal(input.body.createdBy, 'alice')
+    assert.equal((await call(`groovy-ide/Scripts(${scriptId})/inputs`, 'POST', { name: 'bad', headers: '{' })).status, 400)
+    assert.equal((await call(`groovy-ide/Scripts(${scriptId})/inputs`, 'POST', { name: ' ' })).status, 400)
+    assert.equal((await call(`groovy-ide/Scripts(${scriptId})/inputs`, 'POST', { name: 'x' }, 'bob')).status, 403)
+    assert.equal((await call(`groovy-ide/ScriptInputs(${input.body.ID})`, 'PATCH', { name: 'order 2', payload: '<b/>' })).status, 200)
+    const inputs = await call(`groovy-ide/Scripts(${scriptId})/inputs`, 'GET', undefined, 'bob')
+    assert.deepEqual(inputs.body.value.map((i: any) => [i.name, i.payload, i.headers]), [['order 2', '<b/>', headers]])
+    assert.equal((await call('groovy-ide/runTests', 'POST', { scriptId })).status, 404)
 
     assert.equal((await call(`groovy-ide/Scripts(${scriptId})`, 'DELETE')).status, 204)
     assert.equal((await call('groovy-ide/ScriptVersions')).body.value.length, 0)
-    assert.equal((await call('groovy-ide/TestCases')).body.value.length, 0)
+    assert.equal((await call('groovy-ide/ScriptInputs')).body.value.length, 0)
   })
 })

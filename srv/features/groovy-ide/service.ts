@@ -3,12 +3,11 @@ import { CpiClient, CpiError } from '../../lib/cpi-client.js'
 import { loadConnection } from '../../lib/connections.js'
 import { DB_EXECUTOR, EXECUTOR_CODE, ExecutorClient, loadExecutor, type ExecutorConnection } from '../../lib/script-executor.js'
 import { readZip } from '../../lib/zip.js'
-import { bodiesMatch, buildRequest, isScriptPath, parseResponse, type CompareMode, type NameValue, type RunInput, type RunOutput } from './contract.js'
+import { buildRequest, isScriptPath, parseResponse, type RunInput, type RunOutput } from './contract.js'
 
 const { SELECT, INSERT, UPDATE } = cds.ql
 const DB_SCRIPTS = 'btp.toolkit.Scripts'
 const DB_VERSIONS = 'btp.toolkit.ScriptVersions'
-const DB_TEST_CASES = 'btp.toolkit.TestCases'
 
 /** Download sources: artifact type -> CPI entity set. Only DEV is read (decision D13). */
 const SOURCES = {
@@ -26,16 +25,6 @@ const guard = (fn: (req: any) => Promise<any>) => async (req: any) => {
   } catch (e) {
     if (e instanceof CpiError) req.reject(502, e.message)
     throw e
-  }
-}
-
-function parseList(json: string | null | undefined): NameValue[] {
-  if (!json) return []
-  try {
-    const list = JSON.parse(json)
-    return Array.isArray(list) ? list.filter(r => r && typeof r.name === 'string').map(r => ({ name: r.name, value: String(r.value ?? '') })) : []
-  } catch {
-    return []
   }
 }
 
@@ -65,11 +54,8 @@ export default class GroovyIdeService extends cds.ApplicationService {
       }
     })
 
-    this.before(['CREATE', 'UPDATE'], 'TestCases', (req: any) => {
+    this.before(['CREATE', 'UPDATE'], 'ScriptInputs', (req: any) => {
       if ('name' in req.data && !req.data.name?.trim()) req.error(400, 'Name is required', 'name')
-      if (req.data.compareMode && !['EXACT', 'TRIMMED', 'JSON', 'XML'].includes(req.data.compareMode)) {
-        req.error(400, 'Unsupported compare mode', 'compareMode')
-      }
       for (const f of ['headers', 'properties']) {
         const v = req.data[f]
         if (v && !Array.isArray((() => { try { return JSON.parse(v) } catch { return null } })())) {
@@ -140,30 +126,6 @@ export default class GroovyIdeService extends cds.ApplicationService {
       return execute(await loadExecutor(req), {
         script, payload: req.data.payload, headers: req.data.headers, properties: req.data.properties
       })
-    })
-
-    this.on('runTests', async (req: any) => {
-      const scriptId = this.required(req, 'scriptId')
-      const ids: string[] = req.data.testCaseIds ?? []
-      const conn = await loadExecutor(req)
-      const saved = await SELECT.one.from(DB_SCRIPTS).columns('content').where({ ID: scriptId })
-      if (!saved) return req.reject(404, 'Script not found')
-      const script = req.data.script ?? saved.content
-      if (!script?.trim()) return req.reject(400, 'script is required')
-
-      const query = SELECT.from(DB_TEST_CASES).where({ script_ID: scriptId }).orderBy('name')
-      const cases = (await query).filter((c: any) => !ids.length || ids.includes(c.ID))
-      const results = []
-      for (const tc of cases) {   // sequential: keeps the load on the runner predictable
-        const result = await execute(conn, {
-          script, payload: tc.payload, headers: parseList(tc.headers), properties: parseList(tc.properties)
-        })
-        const status = !result.success ? 'ERROR'
-          : tc.expectedBody == null || tc.expectedBody === '' ? 'NO_EXPECTATION'
-            : bodiesMatch(result.body, tc.expectedBody, (tc.compareMode ?? 'TRIMMED') as CompareMode) ? 'PASSED' : 'FAILED'
-        results.push({ testCaseId: tc.ID, name: tc.name, status, result })
-      }
-      return results
     })
 
     return super.init()

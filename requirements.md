@@ -25,14 +25,15 @@ features, plus a link to Configuration. New features must be easy to add.
 | D12 | Each environment has **Allow CPI modifications**, default **off**, editable by Admin. All mutating CPI calls go through the shared client's `write` method, which checks active, enabled configuration each time and rejects with HTTP 403 when blocked. This setting does not affect app configuration updates, token requests, connection tests, or read-only comparison actions. CPI permissions must independently allow the operation; existing Viewer/Admin roles remain unchanged. |
 | D13 | **Groovy IDE** executes scripts through the blog's script-runner iFlow ("CI based Script tester & ABAP Groovy IDE"), request/response contract unchanged. Exactly **one executor** (`ScriptExecutor`, row `DEFAULT`, Admin-maintained in Configuration): runtime endpoint URL with Direct OAuth client credentials (encrypted, write-only secret) **or** a BTP Destination whose URL is the full endpoint. Not tied to DEV/PROD; PROD execution is not offered. Executing is not a CPI design-time change, so it does not use `CpiClient.write`/Allow CPI modifications; it is gated by the Developer role and the executor's `enabled` flag (default off). |
 | D14 | New scope/role template/role collection **`Developer` / `CiToolkitDeveloper`** (includes Viewer): edit Groovy IDE data and run scripts. Viewer opens the IDE read only. `CiToolkitAdmin` does **not** include Developer. |
-| D15 | Groovy IDE data **is persisted** (exception to D9 for this feature): `Scripts` (working copy), immutable `ScriptVersions`, `TestCases`; shared by all users, owner/changer recorded via `managed`. Run results are not stored. |
+| D15 | Groovy IDE data **is persisted** (exception to D9 for this feature): `Scripts` (working copy), immutable `ScriptVersions`, `ScriptInputs` (named run inputs per script); shared by all users, owner/changer recorded via `managed`. Run results are not stored. |
 | D16 | Scripts are downloaded **read only from DEV** only (iFlows and Script Collections, active version, `$value` zip); nothing is uploaded to CPI. Standalone scripts that exist only in the app DB are allowed. |
+| D17 | **Endpoints** lists inbound endpoints from the CPI `ServiceEndpoints` API (deployed artifacts with an HTTP-based sender: HTTPS, SOAP, IDoc, OData, AS2; polling senders have no endpoint). The API has no access role, so the detail view downloads the iFlow (runtime artifact `$value`, design-time active version as fallback) and parses the sender channel from the `.iflw`; `{{parameters}}` are resolved from `Configurations`. Read only, nothing persisted, Viewer/Admin. |
 
 ## 3. Architecture
 ```
 db/                         domain models (namespace btp.toolkit); one file per area
   connections.cds           Connections (DEV/PROD)
-  groovy-ide.cds            Scripts, ScriptVersions, TestCases, ScriptExecutor
+  groovy-ide.cds            Scripts, ScriptVersions, ScriptInputs, ScriptExecutor
   data/*.csv                seed data (DEV/PROD rows, empty config)
 srv/
   index.cds                 entry point: one `using from` line per service
@@ -50,6 +51,7 @@ app/                        UI (static, served by CAP locally; one folder per UI
   configuration/            Fiori Elements app (annotations.cds + webapp/manifest.json, ext/SecretAction.js)
   version-comparator/webapp/  freeform UI5 app (view/controller/formatter/i18n)
   groovy-ide/webapp/        freeform UI5 app with sap.ui.codeeditor (Groovy IDE)
+  endpoints/webapp/         freeform UI5 app (Endpoints list -> detail, NavContainer)
 xs-security.json            roles Viewer / Admin / Developer
 ```
 
@@ -95,13 +97,20 @@ GitHub: https://github.com/devstylator/btp_ci_toolkit (branch `main`). Docs: [RE
 - FR-NAV-3 ✅ `Features` additionally exposes `component` and `componentUrl` (UI5 component to load).
 
 ### 4.4 Groovy IDE (✅ backend, ✅ UI) – see [docs/groovy-ide.md](docs/groovy-ide.md)
-- FR-GIDE-1 ✅ Layout like groovyide.com/cpi: saved-script list (search) | Groovy editor (dark) | input tabs (body, headers, properties, test cases) above output tabs (body, headers, properties, console, error) with status (success/failed, HTTP status, duration). Body editors switch XML/JSON/text highlighting automatically. Ctrl+Enter runs, Ctrl+S saves.
+- FR-GIDE-1 ✅ Layout like groovyide.com/cpi: saved-script list (search) | Groovy editor (dark) | input tabs (body, headers, properties, saved inputs) above output tabs (body, headers, properties, console, error) with status (success/failed, HTTP status, duration). Body editors switch XML/JSON/text highlighting automatically. Ctrl+Enter runs, Ctrl+S saves.
 - FR-GIDE-2 ✅ `run(script, payload, headers, properties)` calls the executor (D13) and returns decoded body, headers, properties (runner-internal `inputScript`/`consoleLog` hidden), console, error, HTTP status, duration. HTTP 400 = Groovy error (`success=false`). Executor disabled/not configured -> 412; runner/network failures -> `success=false` with a sanitized message. Names/values containing `;` or `=` are rejected (runner format). Nothing is stored.
-- FR-GIDE-3 ✅ Scripts: create (name, description; from the scratchpad or a template), save working copy, rename, delete (cascades to versions and test cases). Unsaved-changes indicator and confirmation before discarding.
+- FR-GIDE-3 ✅ Scripts: create (name, description; from the scratchpad or a template), save working copy, rename, delete (cascades to versions and saved inputs). Unsaved-changes indicator and confirmation before discarding.
 - FR-GIDE-4 ✅ Versions: `saveVersion(comment, content)` stores the content as working copy and as immutable version `max+1`; list, compare with the editor (line diff), load into the editor (must be saved to keep), delete.
-- FR-GIDE-5 ✅ Test cases per script: name, payload, headers/properties (JSON `[{name, value}]`), optional expected body, compare mode `TRIMMED` (default) / `EXACT` / `JSON` (semantic) / `XML` (formatting whitespace ignored). Save current input as new or update the loaded test case; load into the input; run one or all (`runTests`, sequential) with status PASSED / FAILED / ERROR / NO_EXPECTATION and summary; clicking a result shows its output, a failed one also the expected/actual diff.
+- FR-GIDE-5 ✅ Saved inputs: **N per script, independent of script versions** (they belong to the script only; saving or restoring a version does not touch them, and every version can run every input). Each has a name, body, headers and properties (JSON `[{name, value}]`). Tab *Saved inputs* lists them (body type, header/property counts, changed by/at) and shows which one is loaded. *Save input as new* stores the current input tabs as an additional input (default name "Input N"); clicking a row loads it into the input tabs; row actions: *Load and run* (with the script in the editor), *Edit* (rename; replaces the stored content with the current input only when "Replace the stored input" is ticked, default on for the loaded one), *Delete*. No expected output, comparison or pass/fail; run outputs are only shown, never stored.
 - FR-GIDE-6 ✅ Download from DEV (D16): `listPackages`, `listArtifacts(packageId)` (iFlows + Script Collections), `listArtifactScripts(packageId, type, artifactId)` downloads the active version zip and returns all `.groovy`/`.gsh` files; artifact name/version from the package listing (CPI answers single-artifact GETs with HTTP 501). The UI previews and saves a file as a new script that records source tenant, package, artifact, version and path.
-- FR-GIDE-7 ✅ Roles (D14): Viewer reads everything and may preview downloads; only Developer may create/update/delete scripts, versions and test cases and call `run`/`runTests`. `executorStatus()` tells the UI whether running is possible.
+- FR-GIDE-7 ✅ Roles (D14): Viewer reads everything and may preview downloads; only Developer may create/update/delete scripts, versions and saved inputs and call `run`. `executorStatus()` tells the UI whether running is possible.
+
+### 4.5 Endpoints (✅ backend, ✅ UI) – D17
+- FR-EP-1 ✅ `listEndpoints()` returns one row per entry point of DEV and PROD: tenant, iFlow ID/name (resolved against the deployed artifacts, since the ServiceEndpoints `Id` is `<iflow>$endpointAddress=<path>`), adapter, protocol, URL, version. A tenant that is not configured/disabled or fails is skipped with a WARN/ERROR message (the other tenant is still listed).
+- FR-EP-2 ✅ List adapter is derived from the runtime URL path (`/http/` HTTPS, `/gw/odata/` OData, `/as2/` AS2, `/cxf/` -> API protocol SOAP/IDoc/XI); the detail view shows the exact `ComponentType` from the iFlow.
+- FR-EP-3 ✅ `endpointDetails(tenant, iflowId, url)` returns deployment info (`IntegrationRuntimeArtifacts`: version, status, deployed by/on) and the sender channel(s) whose address matches the URL (wildcards supported; all sender channels with `matched=false` otherwise): adapter, address, authentication, user role, allowed certificates, all channel properties (credential-like keys dropped). Content source (RUNTIME/DESIGNTIME/NONE) and partial failures are reported as messages. Not configured -> 412, bad tenant -> 400, CPI failure -> 502.
+- FR-EP-4 ✅ UI: table (tenant, iFlow, adapter, endpoint) with tenant filter (All/DEV/PROD), search (iFlow, adapter, URL) and reload; click opens the detail page (endpoint, deployment, access per sender channel, collapsible property list, copy URL). Navigation inside the component, URL hash untouched.
+- FR-EP-5 ⬜ Verify sender-channel property names (`senderAuthType`, `userRole`, `clientCertificates`) and the runtime `$value` format against a real tenant (the raw property list in the detail view shows the actual names).
 
 ## 5. Non-functional
 - NFR-1 Secrets never logged, never returned. `SECRET_KEY` mandatory in production (app fails otherwise); dev falls back to a fixed local key.
@@ -109,11 +118,11 @@ GitHub: https://github.com/devstylator/btp_ci_toolkit (branch `main`). Docs: [RE
 - NFR-3 Local auth: mocked users `alice/alice` (Admin, Viewer), `bob/bob` (Viewer). Production: XSUAA (`xs-security.json`).
 - NFR-4 UI: the browser shows its Basic-auth prompt locally (mocked users); static UI files are public, data calls are authorized. Do not open the UI with credentials in the URL (`http://user:pw@...` breaks `fetch`).
 - NFR-5 Destination credentials/tokens never returned or persisted; SDK diagnostic logging is muted because debug output may contain credentials. Application errors expose only sanitized context/status. CPI requests and pagination stay inside the configured tenant API; redirects are not followed. URLs require HTTPS in production (localhost HTTP only in development).
-- NFR-6 Request body limit 10 MB (`cds.server.body_parser.limit`) for script/test payloads; runner calls time out after 60 s.
+- NFR-6 Request body limit 10 MB (`cds.server.body_parser.limit`) for scripts and input payloads; runner calls time out after 60 s.
 
 ## 6. Out of scope (for now)
 - ❌ History/persistence of comparison runs · ❌ more than two environments · ❌ BTP Credential Store · ❌ CPI mock server.
-- ❌ Groovy IDE: uploading scripts to CPI, running on PROD, deploying the runner iFlow from the app, Groovy autocompletion, storing run results.
+- ❌ Groovy IDE: uploading scripts to CPI, running on PROD, deploying the runner iFlow from the app, Groovy autocompletion, storing run results, test cases with expected output (removed 2026-10-20).
 
 ## 7. Roadmap / open items
 1. ✅ Backend: model + services, runnable locally (`npm run watch` / `cds watch`, http://localhost:4004).
@@ -127,6 +136,11 @@ GitHub: https://github.com/devstylator/btp_ci_toolkit (branch `main`). Docs: [RE
 8. 🚧 Groovy IDE: deploy the runner iFlow on the DEV/trial tenant, configure the executor, assign `CiToolkitDeveloper`, verify against the real runner (verified locally against a fake runner with the same contract and real DEV downloads).
 
 ## 8. Changelog
+- 2026-10-20: Endpoints: `ServiceEndpoints.Id` is an endpoint key (`<iflow>$endpointAddress=<path>`), not the artifact ID; the iFlow ID is now resolved against `IntegrationRuntimeArtifacts` (by ID before `$`, then by name). Details no longer fail with 502 when the single deployed-artifact GET fails (falls back to the artifact list; reported as a message with the HTTP status).
+- 2026-10-20: Endpoints: fixed detail page not opening (HBox inside SimpleForm broke rendering); copy-URL button moved to the page header.
+- 2026-10-20: Endpoints feature (D17, FR-EP-1..5): `EndpointsService` (`listEndpoints`, `endpointDetails`), iFlow sender channel parser, UI app, tests with a fake tenant.
+- 2026-10-20: Groovy IDE: test cases replaced by **saved inputs** per script (FR-GIDE-5, D15): entity `TestCases` -> `ScriptInputs` (no expected body / compare mode), `runTests` removed, tab *Saved inputs* with load, load-and-run, edit, delete. `upgrade:local` moves existing test cases into `ScriptInputs`; HANA undeploys the old table (`db/undeploy.json`).
+- 2026-10-19: Groovy IDE test cases: *New test case* always creates an additional test case (the dialog no longer defaults to updating the loaded one); per-row *Edit* with optional input replacement. Fixed: editor texts set by the app (e.g. input body on a hidden tab) were read stale and stored as empty.
 - 2026-10-19: Groovy IDE feature (D13-D16, FR-GIDE-1..7): DB model, `GroovyIdeService`, executor settings in Configuration, `CiToolkitDeveloper` role, read-only DEV download, UI app, `docs/groovy-ide.md`; shared OAuth/destination helpers extracted to `srv/lib/http-auth.ts`; `upgrade:local` creates new tables and recreates views; URL validation on draft activation.
 - 2026-10-16: local configuration upgrade also refreshes the CAP SQL view; regression test verifies new fields are queryable and secrets remain excluded.
 - 2026-10-16: added per-environment Direct/BTP Destination connection modes and default-off CPI modification access, shared backend write guard, Destination service binding, conditional Configuration UI, and isolated integration tests.

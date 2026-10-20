@@ -7,6 +7,7 @@ import cds from '@sap/cds'
 /**
  * Upgrade existing SQLite installations without recreating tables or loading seeds: add the configuration
  * fields, create tables of new features (e.g. Groovy IDE) and recreate all views from the current model.
+ * Groovy IDE test cases (removed) are moved into ScriptInputs: their name and input are kept, expectations dropped.
  */
 export async function upgradeLocal(filename = 'db.sqlite') {
   const path = resolve(filename)
@@ -40,6 +41,13 @@ export async function upgradeLocal(filename = 'db.sqlite') {
     }
     for (const table of tables) {
       if (!exists(nameOf(table))) db.exec(table)
+    }
+    if (exists('btp_toolkit_TestCases')) {
+      const columns = 'ID, createdAt, createdBy, modifiedAt, modifiedBy, script_ID, name, payload, headers, properties'
+      db.exec(`INSERT INTO btp_toolkit_ScriptInputs (${columns}) SELECT ${columns} FROM btp_toolkit_TestCases
+        WHERE ID NOT IN (SELECT ID FROM btp_toolkit_ScriptInputs)`)
+      db.exec('DROP VIEW IF EXISTS GroovyIdeService_TestCases')
+      db.exec('DROP TABLE btp_toolkit_TestCases')
     }
     for (const view of views) db.exec(`DROP VIEW IF EXISTS "${nameOf(view)}"`)
     for (const view of views) db.exec(view)

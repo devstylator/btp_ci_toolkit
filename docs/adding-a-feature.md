@@ -158,9 +158,14 @@ For a code editor use `sap.ui.codeeditor.CodeEditor` (see `app/groovy-ide/webapp
 - Bind its `value` **one-way** and read the text with `getCurrentValue()`. Ace fires `liveChange` with intermediate
   values while (re-)rendering, so writing the model from `liveChange` (or changing `type` synchronously) ends in
   "Rendering has been re-started too many times". Debounce `liveChange` and only update flags from it.
+- `setValue()` reaches Ace only on the next rendering (never while the editor is in a hidden tab); until then
+  `getCurrentValue()` returns the old text. Remember programmatic texts until Ace shows them (`_editorText` in the
+  Groovy IDE controller).
 - Formatters run before the view has the component's models; use `this.getOwnerComponent().getModel("i18n")`.
 - A stretched `IconTabBar` is absolutely positioned; inside `sap.ui.layout.Splitter` panes give it `position: relative`.
 - In a flex row (HBox) give the editor `height="auto"` so it stretches; percentage heights do not resolve there.
+- `sap.ui.layout.form.SimpleForm` accepts only form content (`Label`, `Text`, `ObjectStatus`, inputs...), not layout
+  containers: an `HBox` inside it throws during rendering, so e.g. a `NavContainer.to()` into that page silently does nothing.
 
 Common requirements for both:
 - Do not touch the URL hash unless you are a Fiori Elements app (the hash belongs to the app; the launcher builds

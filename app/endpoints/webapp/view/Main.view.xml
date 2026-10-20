@@ -1,0 +1,191 @@
+<mvc:View
+  controllerName="btp.toolkit.endpoints.controller.Main"
+  xmlns="sap.m"
+  xmlns:mvc="sap.ui.core.mvc"
+  xmlns:core="sap.ui.core"
+  xmlns:f="sap.ui.layout.form"
+  height="100%">
+  <NavContainer id="nav" height="100%">
+    <Page id="listPage" title="{i18n>appTitle}" enableScrolling="true" busy="{view>/busy}" busyIndicatorDelay="0">
+      <content>
+        <MessageStrip
+          text="{view>/error}"
+          type="Error"
+          showIcon="true"
+          visible="{= !!${view>/error}}"
+          class="sapUiResponsiveMargin"/>
+        <VBox items="{view>/messages}" class="sapUiResponsiveMargin" visible="{= ${view>/messages}.length > 0}" renderType="Bare">
+          <MessageStrip
+            text="{view>message}"
+            type="{path: 'view>level', formatter: '.formatter.messageType'}"
+            showIcon="true"
+            class="sapUiTinyMarginBottom"/>
+        </VBox>
+        <Table
+          id="endpointTable"
+          class="sapUiResponsiveMargin"
+          width="auto"
+          items="{view>/endpoints}"
+          growing="true"
+          growingThreshold="100"
+          sticky="ColumnHeaders,HeaderToolbar"
+          noDataText="{= ${view>/loaded} ? ${i18n>noEndpoints} : ${i18n>noData}}">
+          <headerToolbar>
+            <OverflowToolbar>
+              <Title text="{view>/countText}" level="H2"/>
+              <ToolbarSpacer/>
+              <SegmentedButton selectedKey="{view>/tenant}" selectionChange=".onFilter">
+                <items>
+                  <SegmentedButtonItem key="ALL" text="{i18n>all}"/>
+                  <SegmentedButtonItem key="DEV" text="DEV"/>
+                  <SegmentedButtonItem key="PROD" text="PROD"/>
+                </items>
+              </SegmentedButton>
+              <SearchField width="20rem" value="{view>/query}" placeholder="{i18n>search}" liveChange=".onFilter" search=".onFilter"/>
+              <Button icon="sap-icon://refresh" type="Transparent" tooltip="{i18n>reload}" press=".onReload"/>
+            </OverflowToolbar>
+          </headerToolbar>
+          <columns>
+            <Column width="6rem"><Text text="{i18n>colTenant}"/></Column>
+            <Column width="30%"><Text text="{i18n>colIflow}"/></Column>
+            <Column width="8rem"><Text text="{i18n>colAdapter}"/></Column>
+            <Column><Text text="{i18n>colEndpoint}"/></Column>
+          </columns>
+          <items>
+            <ColumnListItem type="Navigation" press=".onSelect">
+              <cells>
+                <ObjectStatus text="{view>tenant}" state="{path: 'view>tenant', formatter: '.formatter.tenantState'}" inverted="true"/>
+                <ObjectIdentifier title="{view>iflowName}" text="{view>iflowId}"/>
+                <Text text="{path: 'view>adapter', formatter: '.formatter.value'}"/>
+                <Text text="{view>url}" wrapping="true"/>
+              </cells>
+            </ColumnListItem>
+          </items>
+        </Table>
+      </content>
+    </Page>
+
+    <Page
+      id="detailPage"
+      title="{view>/selected/iflowName}"
+      showNavButton="true"
+      navButtonPress=".onBack"
+      navButtonTooltip="{i18n>back}"
+      enableScrolling="true"
+      busy="{view>/detailBusy}"
+      busyIndicatorDelay="0">
+      <headerContent>
+        <Button icon="sap-icon://copy" text="{i18n>copyUrl}" type="Transparent" press=".onCopyUrl"/>
+      </headerContent>
+      <content>
+        <MessageStrip
+          text="{view>/detailError}"
+          type="Error"
+          showIcon="true"
+          visible="{= !!${view>/detailError}}"
+          class="sapUiResponsiveMargin"/>
+        <VBox items="{view>/details/messages}" class="sapUiResponsiveMargin" visible="{= !!${view>/details/messages} &amp;&amp; ${view>/details/messages}.length > 0}" renderType="Bare">
+          <MessageStrip
+            text="{view>message}"
+            type="{path: 'view>level', formatter: '.formatter.messageType'}"
+            showIcon="true"
+            class="sapUiTinyMarginBottom"/>
+        </VBox>
+
+        <f:SimpleForm
+          title="{i18n>secEndpoint}"
+          editable="false"
+          layout="ColumnLayout"
+          columnsM="2" columnsL="2" columnsXL="2"
+          class="sapUiResponsiveMargin"
+          width="auto">
+          <Label text="{i18n>colTenant}"/>
+          <ObjectStatus text="{view>/selected/tenant}" state="{path: 'view>/selected/tenant', formatter: '.formatter.tenantState'}" inverted="true"/>
+          <Label text="{i18n>iflowName}"/>
+          <Text text="{view>/selected/iflowName}"/>
+          <Label text="{i18n>iflowId}"/>
+          <Text text="{view>/selected/iflowId}"/>
+          <Label text="{i18n>adapter}"/>
+          <Text text="{path: 'view>/adapter', formatter: '.formatter.value'}"/>
+          <Label text="{i18n>protocol}"/>
+          <Text text="{path: 'view>/selected/protocol', formatter: '.formatter.value'}"/>
+          <Label text="{i18n>url}"/>
+          <Text text="{view>/selected/url}" wrapping="true"/>
+        </f:SimpleForm>
+
+        <f:SimpleForm
+          title="{i18n>secDeployment}"
+          editable="false"
+          layout="ColumnLayout"
+          columnsM="2" columnsL="2" columnsXL="2"
+          class="sapUiResponsiveMargin"
+          width="auto">
+          <Label text="{i18n>version}"/>
+          <Text text="{= ${view>/details/deployment/version} || ${view>/selected/version} || '-'}"/>
+          <Label text="{i18n>status}"/>
+          <ObjectStatus
+            text="{path: 'view>/details/deployment/status', formatter: '.formatter.value'}"
+            state="{path: 'view>/details/deployment/status', formatter: '.formatter.statusState'}"/>
+          <Label text="{i18n>deployedBy}"/>
+          <Text text="{path: 'view>/details/deployment/deployedBy', formatter: '.formatter.value'}"/>
+          <Label text="{i18n>deployedOn}"/>
+          <Text text="{path: 'view>/details/deployment/deployedOn', formatter: '.formatter.dateTime'}"/>
+        </f:SimpleForm>
+
+        <MessageStrip
+          text="{i18n>notMatched}"
+          type="Information"
+          showIcon="true"
+          visible="{= !!${view>/details} &amp;&amp; !${view>/details/matched} &amp;&amp; ${view>/details/channels}.length > 0}"
+          class="sapUiResponsiveMargin"/>
+
+        <VBox items="{view>/details/channels}" renderType="Bare">
+          <VBox renderType="Bare">
+            <f:SimpleForm
+              title="{parts: ['i18n>secChannel', 'view>name'], formatter: '.formatMessage'}"
+              editable="false"
+              layout="ColumnLayout"
+              columnsM="2" columnsL="2" columnsXL="2"
+              class="sapUiResponsiveMargin"
+              width="auto">
+              <core:Title text="{i18n>secAccess}"/>
+              <Label text="{i18n>authentication}"/>
+              <Text text="{path: 'view>authentication', formatter: '.formatter.value'}"/>
+              <Label text="{i18n>userRole}"/>
+              <ObjectStatus text="{path: 'view>userRole', formatter: '.formatter.value'}" state="Information"/>
+              <Label text="{i18n>certificates}" visible="{= !!${view>certificates}}"/>
+              <Text text="{view>certificates}" visible="{= !!${view>certificates}}"/>
+              <Label text="{i18n>adapter}"/>
+              <Text text="{path: 'view>adapter', formatter: '.formatter.value'}"/>
+              <Label text="{i18n>address}"/>
+              <Text text="{path: 'view>address', formatter: '.formatter.value'}"/>
+              <Label text="{i18n>contentSource}"/>
+              <Text text="{path: 'view>/details/contentSource', formatter: '.formatter.contentSource'}"/>
+            </f:SimpleForm>
+            <Panel
+              headerText="{i18n>secProperties}"
+              expandable="true"
+              expanded="false"
+              class="sapUiResponsiveMargin"
+              width="auto">
+              <Table items="{path: 'view>properties', templateShareable: false}">
+                <columns>
+                  <Column width="35%"><Text text="{i18n>colKey}"/></Column>
+                  <Column><Text text="{i18n>colValue}"/></Column>
+                </columns>
+                <items>
+                  <ColumnListItem>
+                    <cells>
+                      <Text text="{view>key}"/>
+                      <Text text="{view>value}" wrapping="true"/>
+                    </cells>
+                  </ColumnListItem>
+                </items>
+              </Table>
+            </Panel>
+          </VBox>
+        </VBox>
+      </content>
+    </Page>
+  </NavContainer>
+</mvc:View>

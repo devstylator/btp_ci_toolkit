@@ -1,14 +1,6 @@
 sap.ui.define([], function () {
   "use strict";
 
-  const TEST_STATE = { PASSED: "Success", FAILED: "Error", ERROR: "Error", NO_EXPECTATION: "Information" };
-  const TEST_ICON = {
-    PASSED: "sap-icon://sys-enter-2",
-    FAILED: "sap-icon://error",
-    ERROR: "sap-icon://alert",
-    NO_EXPECTATION: "sap-icon://hint"
-  };
-
   return {
     /** Ace mode for a message body: XML, JSON or plain text. */
     bodyType(text) {
@@ -27,13 +19,6 @@ sap.ui.define([], function () {
 
     sourceIcon(type) {
       return type === "IFLOW" ? "sap-icon://process" : type === "SCRIPT_COLLECTION" ? "sap-icon://course-book" : "sap-icon://document-text";
-    },
-
-    testState: (status) => TEST_STATE[status] || "None",
-    testIcon: (status) => TEST_ICON[status] || "",
-
-    testText(status) {
-      return status ? this.getOwnerComponent().getModel("i18n").getResourceBundle().getText(`test${status}`) : "";
     },
 
     dateTime(value) {

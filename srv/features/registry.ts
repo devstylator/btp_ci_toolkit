@@ -46,6 +46,19 @@ export const features: FeatureDescriptor[] = [
     roles: ['Viewer', 'Developer']
   },
   {
+    ID: 'endpoints',
+    title: 'Endpoints',
+    subtitle: 'Inbound endpoints of DEV and PROD with adapter, access role and deployment',
+    icon: 'sap-icon://chain-link',
+    route: 'endpoints',
+    component: 'btp.toolkit.endpoints',
+    componentUrl: '/endpoints/webapp',
+    service: '/odata/v4/endpoints',
+    position: 30,
+    group: 'FEATURE',
+    roles: ['Viewer', 'Admin']
+  },
+  {
     ID: 'configuration',
     title: 'Configuration',
     subtitle: 'DEV and PROD connections',

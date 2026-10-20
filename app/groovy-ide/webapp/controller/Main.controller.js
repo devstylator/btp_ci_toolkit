@@ -55,10 +55,9 @@ Message processData(Message message) {
         output: emptyOutput(),
         inputTab: "body",
         outputTab: "body",
-        testCases: [],
-        testSummary: "",
-        loadedTestCaseId: null,
-        testCase: {},
+        inputs: [],
+        loadedInputId: null,
+        inputEdit: {},
         versions: [],
         versionComment: "",
         details: {},
@@ -103,7 +102,7 @@ Message processData(Message message) {
     },
 
     _openDialog() {
-      return ["detailsDialog", "importDialog", "versionsDialog", "diffDialog", "testCaseDialog"].some((id) => this.byId(id).isOpen());
+      return ["detailsDialog", "importDialog", "versionsDialog", "diffDialog", "inputDialog"].some((id) => this.byId(id).isOpen());
     },
 
     // ---- HTTP -------------------------------------------------------------------------------------------
@@ -173,17 +172,39 @@ Message processData(Message message) {
     // Code editors are bound one-way: writing the model from liveChange makes Ace re-render endlessly.
     // The live text is read from the editors; liveChange only updates flags (dirty, syntax mode).
 
+    // CodeEditor.setValue() only updates the control property; Ace gets the text on the next rendering (later, or not
+    // at all while the editor sits in a hidden tab), and getCurrentValue() returns the old text until then.
+    // Programmatic texts are therefore remembered until Ace shows them.
+    _setEditorText(id, text) {
+      this._pendingText = this._pendingText || {};
+      if (this._editorText(id) === text) {
+        return;
+      }
+      this.byId(id).setValue(text);
+      this._pendingText[id] = text;
+    },
+
+    _editorText(id) {
+      const current = this.byId(id).getCurrentValue();
+      const pending = this._pendingText && this._pendingText[id];
+      if (pending === undefined) {
+        return current;
+      }
+      if (current === pending) {
+        delete this._pendingText[id]; // Ace shows it now; from here on user edits count
+        return current;
+      }
+      return pending;
+    },
+
     _content() {
-      return this.byId("scriptEditor").getCurrentValue();
+      return this._editorText("scriptEditor");
     },
 
     /** Puts text into the script editor; `saved` also sets the saved state (no unsaved changes). */
     _setContent(text, saved) {
       this._model.setProperty("/content", text);
-      const editor = this.byId("scriptEditor");
-      if (editor.getCurrentValue() !== text) {
-        editor.setValue(text);
-      }
+      this._setEditorText("scriptEditor", text);
       if (saved !== undefined) {
         this._model.setProperty("/savedContent", saved);
       }
@@ -203,19 +224,7 @@ Message processData(Message message) {
 
     _setInput(input) {
       this._model.setProperty("/input", { ...input, bodyType: formatter.bodyType(input.body) });
-      const editor = this.byId("inputBodyEditor");
-      if (editor.getCurrentValue() !== input.body) {
-        editor.setValue(input.body);
-      }
-    },
-
-    _setExpected(text) {
-      this._model.setProperty("/testCase/expectedBody", text);
-      this._model.setProperty("/testCase/expectedType", formatter.bodyType(text));
-      const editor = this.byId("expectedEditor");
-      if (editor.getCurrentValue() !== text) {
-        editor.setValue(text);
-      }
+      this._setEditorText("inputBodyEditor", input.body);
     },
 
     _setIfChanged(path, value) {
@@ -278,14 +287,16 @@ Message processData(Message message) {
 
     _openScript(id) {
       return this._run(async () => {
-        const script = await this._request(`Scripts(${id})?$expand=testCases($orderby=name)`);
-        const testCases = (script.testCases || []).map((tc) => ({ ...tc, lastStatus: null, lastResult: null }));
-        delete script.testCases;
+        const script = await this._request(`Scripts(${id})?$expand=inputs($orderby=name)`);
+        const inputs = script.inputs || [];
+        delete script.inputs;
         this._model.setProperty("/script", script);
         this._setContent(script.content || "", script.content || "");
-        this._model.setProperty("/testCases", testCases);
-        this._model.setProperty("/testSummary", "");
-        this._model.setProperty("/loadedTestCaseId", null);
+        this._model.setProperty("/inputs", inputs);
+        this._model.setProperty("/loadedInputId", null);
+        if (!inputs.length && this._model.getProperty("/inputTab") === "inputs") {
+          this._model.setProperty("/inputTab", "body");
+        }
         this._model.setProperty("/output", emptyOutput());
         this._syncListSelection();
       });
@@ -300,11 +311,13 @@ Message processData(Message message) {
     },
 
     onScriptLiveChange() {
+      this._editorText("scriptEditor"); // settles a pending programmatic text once Ace shows it
       this._later("dirty", () => this._updateDirty());
     },
 
     onInputBodyLiveChange() {
-      this._later("input", () => this._setIfChanged("/input/bodyType", formatter.bodyType(this.byId("inputBodyEditor").getCurrentValue())));
+      this._editorText("inputBodyEditor");
+      this._later("input", () => this._setIfChanged("/input/bodyType", formatter.bodyType(this._editorText("inputBodyEditor"))));
     },
 
     async onNew() {
@@ -375,8 +388,9 @@ Message processData(Message message) {
             await this._request(`Scripts(${script.ID})`, "DELETE");
             this._model.setProperty("/script", null);
             this._setContent(TEMPLATE, TEMPLATE);
-            this._model.setProperty("/testCases", []);
-            this._model.setProperty("/loadedTestCaseId", null);
+            this._model.setProperty("/inputs", []);
+            this._model.setProperty("/loadedInputId", null);
+            this._model.setProperty("/inputTab", "body");
             await this._loadScripts();
             MessageToast.show(this._text("deleted"));
           });
@@ -402,7 +416,7 @@ Message processData(Message message) {
       return this._run(async () => {
         const result = await this._request("run", "POST", {
           script: this._content(),
-          payload: this.byId("inputBodyEditor").getCurrentValue(),
+          payload: this._editorText("inputBodyEditor"),
           headers: cleanList(input.headers),
           properties: cleanList(input.properties)
         });
@@ -421,129 +435,113 @@ Message processData(Message message) {
       this._model.setProperty(path, this._model.getProperty(path).filter((r) => r !== row));
     },
 
-    // ---- test cases -------------------------------------------------------------------------------------
+    // ---- saved inputs ---------------------------------------------------------------------------------
 
-    onLoadTestCase(event) {
-      const tc = event.getSource().getBindingContext("view").getObject();
-      this._setInput({ body: tc.payload || "", headers: parseList(tc.headers), properties: parseList(tc.properties) });
-      this._model.setProperty("/loadedTestCaseId", tc.ID);
-      this._model.setProperty("/inputTab", "body");
-      MessageToast.show(this._text("testCaseLoaded", tc.name));
-    },
-
-    onOpenTestCaseDialog() {
-      const loaded = this._model.getProperty("/testCases").find((tc) => tc.ID === this._model.getProperty("/loadedTestCaseId"));
-      this._model.setProperty("/testCase", loaded
-        ? { name: loaded.name, compareMode: loaded.compareMode || "TRIMMED" }
-        : { name: "", compareMode: "TRIMMED" });
-      this._setExpected(loaded ? loaded.expectedBody || "" : "");
-      this.byId("testCaseDialog").open();
-    },
-
-    onUseLastOutput() {
-      this._setExpected(this._model.getProperty("/output/body"));
-    },
-
-    onExpectedLiveChange() {
-      this._later("expected", () => this._setIfChanged("/testCase/expectedType", formatter.bodyType(this.byId("expectedEditor").getCurrentValue())));
-    },
-
-    onSaveTestCase(event) {
-      const mode = event.getSource().data("mode");
-      const tc = this._model.getProperty("/testCase");
+    _currentInput() {
       const input = this._model.getProperty("/input");
-      const data = {
-        name: tc.name.trim(),
-        compareMode: tc.compareMode,
-        expectedBody: this.byId("expectedEditor").getCurrentValue() || null,
-        payload: this.byId("inputBodyEditor").getCurrentValue() || null,
+      return {
+        payload: this._editorText("inputBodyEditor") || null,
         headers: JSON.stringify(cleanList(input.headers)),
         properties: JSON.stringify(cleanList(input.properties))
       };
-      this.byId("testCaseDialog").close();
+    },
+
+    _loadInput(stored) {
+      this._setInput({ body: stored.payload || "", headers: parseList(stored.headers), properties: parseList(stored.properties) });
+      this._model.setProperty("/loadedInputId", stored.ID);
+    },
+
+    inputSummary(stored) {
+      if (!stored) {
+        return "";
+      }
+      const type = formatter.bodyType(stored.payload);
+      const body = stored.payload ? this._text(`body_${type}`) : this._text("bodyEmpty");
+      return this._text("inputSummary", body, parseList(stored.headers).length, parseList(stored.properties).length);
+    },
+
+    loadedInputText(id, inputs) {
+      const stored = id && (inputs || []).find((i) => i.ID === id);
+      return stored ? this._text("loadedInput", stored.name) : this._text("noInputLoaded");
+    },
+
+    onLoadInput(event) {
+      const stored = event.getSource().getBindingContext("view").getObject();
+      this._loadInput(stored);
+      this._model.setProperty("/inputTab", "body");
+      MessageToast.show(this._text("inputLoaded", stored.name));
+    },
+
+    /** Loads the input and runs the editor's script with it (the list stays visible). */
+    onRunInput(event) {
+      this._loadInput(event.getSource().getBindingContext("view").getObject());
+      return this.onRun();
+    },
+
+    /** Stores the current input as an additional saved input; it never overwrites an existing one. */
+    onNewInput() {
+      const count = this._model.getProperty("/inputs").length;
+      this._model.setProperty("/inputEdit", { mode: "create", name: this._text("inputDefaultName", count + 1) });
+      this.byId("inputDialog").open();
+    },
+
+    /** Renames a saved input; its stored content is replaced only when requested (default: when it is the loaded one). */
+    onEditInput(event) {
+      const stored = event.getSource().getBindingContext("view").getObject();
+      this._model.setProperty("/inputEdit", {
+        mode: "update",
+        ID: stored.ID,
+        name: stored.name,
+        replaceInput: stored.ID === this._model.getProperty("/loadedInputId")
+      });
+      this.byId("inputDialog").open();
+    },
+
+    onSaveInput() {
+      const edit = this._model.getProperty("/inputEdit");
+      if (!edit.name || !edit.name.trim()) {
+        return undefined;
+      }
+      const data = { name: edit.name.trim() };
+      if (edit.mode === "create" || edit.replaceInput) {
+        Object.assign(data, this._currentInput());
+      }
+      this.byId("inputDialog").close();
       return this._run(async () => {
         const scriptId = this._model.getProperty("/script/ID");
-        const loadedId = this._model.getProperty("/loadedTestCaseId");
-        const saved = mode === "update"
-          ? await this._request(`TestCases(${loadedId})`, "PATCH", data)
-          : await this._request(`Scripts(${scriptId})/testCases`, "POST", data);
-        await this._reloadTestCases();
-        this._model.setProperty("/loadedTestCaseId", saved.ID);
-        MessageToast.show(this._text("saved"));
+        const saved = edit.mode === "update"
+          ? await this._request(`ScriptInputs(${edit.ID})`, "PATCH", data)
+          : await this._request(`Scripts(${scriptId})/inputs`, "POST", data);
+        await this._reloadInputs();
+        if (data.payload !== undefined) {
+          this._model.setProperty("/loadedInputId", saved.ID); // the input fields now match this saved input
+        }
+        MessageToast.show(this._text(edit.mode === "update" ? "inputUpdated" : "inputCreated", data.name));
       });
     },
 
-    async _reloadTestCases() {
-      const previous = new Map(this._model.getProperty("/testCases").map((tc) => [tc.ID, tc]));
+    async _reloadInputs() {
       const scriptId = this._model.getProperty("/script/ID");
-      const result = await this._request(`Scripts(${scriptId})/testCases?$orderby=name`);
-      this._model.setProperty("/testCases", result.value.map((tc) => ({
-        ...tc,
-        lastStatus: previous.has(tc.ID) ? previous.get(tc.ID).lastStatus : null,
-        lastResult: previous.has(tc.ID) ? previous.get(tc.ID).lastResult : null
-      })));
+      const result = await this._request(`Scripts(${scriptId})/inputs?$orderby=name`);
+      this._model.setProperty("/inputs", result.value);
     },
 
-    onDeleteTestCase(event) {
-      const tc = event.getSource().getBindingContext("view").getObject();
-      MessageBox.confirm(this._text("confirmDeleteTestCase", tc.name), {
+    onDeleteInput(event) {
+      const stored = event.getSource().getBindingContext("view").getObject();
+      MessageBox.confirm(this._text("confirmDeleteInput", stored.name), {
         onClose: (action) => {
           if (action !== MessageBox.Action.OK) {
             return;
           }
           this._run(async () => {
-            await this._request(`TestCases(${tc.ID})`, "DELETE");
-            if (this._model.getProperty("/loadedTestCaseId") === tc.ID) {
-              this._model.setProperty("/loadedTestCaseId", null);
+            await this._request(`ScriptInputs(${stored.ID})`, "DELETE");
+            if (this._model.getProperty("/loadedInputId") === stored.ID) {
+              this._model.setProperty("/loadedInputId", null);
             }
-            await this._reloadTestCases();
+            await this._reloadInputs();
           });
         }
       });
-    },
-
-    onRunTests() {
-      return this._runTests([]);
-    },
-
-    onRunTestCase(event) {
-      return this._runTests([event.getSource().getBindingContext("view").getProperty("ID")]);
-    },
-
-    _runTests(testCaseIds) {
-      return this._run(async () => {
-        const result = await this._request("runTests", "POST", {
-          scriptId: this._model.getProperty("/script/ID"),
-          script: this._content(),
-          testCaseIds
-        });
-        const byId = new Map(result.value.map((r) => [r.testCaseId, r]));
-        const testCases = this._model.getProperty("/testCases").map((tc) => byId.has(tc.ID)
-          ? { ...tc, lastStatus: byId.get(tc.ID).status, lastResult: byId.get(tc.ID).result }
-          : tc);
-        this._model.setProperty("/testCases", testCases);
-        const count = (status) => result.value.filter((r) => r.status === status).length;
-        this._model.setProperty("/testSummary", this._text("testSummary",
-          result.value.length, count("PASSED"), count("FAILED"), count("ERROR"), count("NO_EXPECTATION")));
-        if (result.value.length === 1) {
-          this._showOutput(result.value[0].result);
-        }
-      });
-    },
-
-    onShowTestResult(event) {
-      const tc = event.getSource().getBindingContext("view").getObject();
-      if (!tc.lastResult) {
-        return;
-      }
-      this._showOutput(tc.lastResult);
-      if (tc.lastStatus === "FAILED") {
-        this._model.setProperty("/diff", {
-          title: this._text("diffExpected", tc.name),
-          html: diff.toHtml(diff.diffLines(tc.expectedBody || "", tc.lastResult.body || ""))
-        });
-        this.byId("diffDialog").open();
-      }
     },
 
     // ---- versions ---------------------------------------------------------------------------------------

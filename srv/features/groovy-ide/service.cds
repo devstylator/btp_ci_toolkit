@@ -1,7 +1,7 @@
 using { btp.toolkit as db } from '../../../db/groovy-ide';
 
 /**
- * Groovy IDE: edit, version and test CPI Groovy scripts and run them through the script-runner iFlow.
+ * Groovy IDE: edit and version CPI Groovy scripts, keep named inputs per script and run them through the script-runner iFlow.
  * Scripts can be downloaded (read-only) from DEV iFlows / Script Collections; nothing is uploaded to CPI.
  * Viewer: read only. Developer: create/edit, download into the IDE, run.
  */
@@ -29,7 +29,7 @@ service GroovyIdeService {
     { grant: 'READ', to: ['Viewer', 'Developer'] },
     { grant: ['CREATE', 'UPDATE', 'DELETE'], to: 'Developer' }
   ]
-  entity TestCases as projection on db.TestCases;
+  entity ScriptInputs as projection on db.ScriptInputs;
 
   type NameValue {
     name  : String;
@@ -45,13 +45,6 @@ service GroovyIdeService {
     console    : LargeString;
     error      : LargeString;
     durationMs : Integer;
-  }
-
-  type TestCaseResult {
-    testCaseId : UUID;
-    name       : String;
-    status     : String enum { PASSED; FAILED; ERROR; NO_EXPECTATION };
-    result     : RunResult;
   }
 
   type ExecutorStatus {
@@ -99,8 +92,4 @@ service GroovyIdeService {
   /** Runs a script through the script-runner iFlow. Nothing is stored. */
   @requires: 'Developer'
   action run(script : LargeString, payload : LargeString, headers : many NameValue, properties : many NameValue) returns RunResult;
-
-  /** Runs `script` against test cases of a saved script (all, or the given IDs) and compares the output body. */
-  @requires: 'Developer'
-  action runTests(scriptId : UUID, script : LargeString, testCaseIds : many UUID) returns many TestCaseResult;
 }

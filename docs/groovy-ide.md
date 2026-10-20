@@ -10,11 +10,11 @@ runtime through a small **script-runner iFlow**. The design follows the blog
 | Run | `Run` (Ctrl+Enter) posts the script and input to the runner iFlow; nothing is stored |
 | Save | Scripts are stored in the app DB and shared by all users (`createdBy`/`modifiedBy` shown). `Save` (Ctrl+S) overwrites the working copy |
 | Versions | `Versions` > `Save version`: immutable numbered snapshot with comment; compare with the editor (line diff), load into the editor, delete |
-| Test cases | Input body/headers/properties plus an optional expected body (compare: trimmed, exact, JSON, XML). `Run all` runs the editor's script against them: passed / failed / error / ran |
+| Saved inputs | Any number per script, independent of versions (every version can run every input). Tab `Saved inputs` > `Save input as new` stores the current input body/headers/properties under a name; click a row to load it into the input tabs, ▷ loads and runs it with the editor's script, `Edit` renames it (and overwrites it with the current input when "Replace the stored input" is ticked). Outputs are never stored |
 | Download | `Download from CPI`: DEV package > iFlow or Script Collection > `.groovy` file, saved as a new script that records the artifact, version and path. **Read only: nothing is ever uploaded to CPI** |
 
 Roles: `CiToolkitViewer` can open the IDE read only (browse, view, preview downloads). `CiToolkitDeveloper` can
-create/edit/delete scripts, versions and test cases, download into the IDE and run scripts. `CiToolkitAdmin` configures the
+create/edit/delete scripts, versions and saved inputs, download into the IDE and run scripts. `CiToolkitAdmin` configures the
 executor but does not include Developer.
 
 ## 1. Deploy the script-runner iFlow (once)
@@ -65,4 +65,4 @@ Request (POST, JSON, all values Base64): `inputScript`, `inputPayload`, `inputPa
   set is shown.
 - HTTP 400 with an `error` field is a Groovy error (shown in the *Error* tab, the run counts as failed). Other
   statuses (401/403 credentials or role, 404 wrong URL / iFlow not deployed, 5xx) are reported as runner errors.
-- Run time limit: 60 s per call. Test cases run one after another.
+- Run time limit: 60 s per call.

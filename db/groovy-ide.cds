@@ -3,7 +3,7 @@ namespace btp.toolkit;
 using { cuid, managed } from '@sap/cds/common';
 
 /**
- * Groovy IDE: scripts edited in the app, their immutable versions and test cases (shared by all users).
+ * Groovy IDE: scripts edited in the app, their immutable versions and saved inputs (shared by all users).
  * Scripts are created from scratch or downloaded (read-only) from a DEV iFlow / Script Collection.
  */
 entity Scripts : cuid, managed {
@@ -18,7 +18,7 @@ entity Scripts : cuid, managed {
   sourceArtifactVersion : String(40);
   sourcePath            : String(500);           // file inside the artifact zip
   versions              : Composition of many ScriptVersions on versions.script = $self;
-  testCases             : Composition of many TestCases on testCases.script = $self;
+  inputs                : Composition of many ScriptInputs on inputs.script = $self;
 }
 
 /** Immutable snapshot of a script, created by the `saveVersion` action. */
@@ -29,15 +29,16 @@ entity ScriptVersions : cuid, managed {
   content : LargeString;
 }
 
-/** Input of a script run, optionally with the expected output body. Headers/properties: JSON `[{name, value}]`. */
-entity TestCases : cuid, managed {
-  script       : Association to Scripts;
-  name         : String(120) @mandatory;
-  payload      : LargeString;
-  headers      : LargeString;
-  properties   : LargeString;
-  expectedBody : LargeString;
-  compareMode  : String(10) enum { EXACT; TRIMMED; JSON; XML } default 'TRIMMED';
+/**
+ * Named input of a script run (body, headers, properties), stored per script and usable with every version.
+ * Headers/properties: JSON `[{name, value}]`. Run results are never stored.
+ */
+entity ScriptInputs : cuid, managed {
+  script     : Association to Scripts;
+  name       : String(120) @mandatory;
+  payload    : LargeString;
+  headers    : LargeString;
+  properties : LargeString;
 }
 
 /**

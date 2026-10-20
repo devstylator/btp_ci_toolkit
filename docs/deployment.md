@@ -108,8 +108,9 @@ This adds the three new columns to the active and draft connection tables and re
 it can safely be rerun.
 `deploy:local` recreates tables and reloads seed data, so reserve it for new/reset databases.
 For HANA use your normal backup and full MTA deployment process. The existing seed CSV is unchanged.
-The Groovy IDE adds tables (scripts, versions, test cases, executor settings); HDI creates them on deployment and
-`npm run upgrade:local` creates them locally. The executor row is created on first read, not from seed data.
+The Groovy IDE adds tables (scripts, versions, saved inputs, executor settings); HDI creates them on deployment and
+`npm run upgrade:local` creates them locally. The former test cases table is dropped on HANA (`db/undeploy.json`);
+locally `upgrade:local` first moves its rows (name and input) into the saved inputs table. The executor row is created on first read, not from seed data.
 After deployment, verify the existing DEV/PROD settings and test both.
 Keep `ci-toolkit-secrets` and its key while any stored direct credentials are retained.
 

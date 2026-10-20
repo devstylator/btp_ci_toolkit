@@ -9,7 +9,8 @@ Current features:
 | Feature | What it does |
 |---------|--------------|
 | **Version Comparator** | Compares package / artifact versions between the DEV and PROD tenants (version numbers only), with a status per item (match, differs, missing in DEV/PROD) and a step log. Nothing is stored. |
-| **Groovy IDE** | GroovyIDE-like editor for CPI Groovy scripts: run them on a script-runner iFlow (body, headers, properties, console), save scripts with versions and test cases in the app DB, download scripts read only from DEV iFlows / Script Collections. See [docs/groovy-ide.md](docs/groovy-ide.md). |
+| **Groovy IDE** | GroovyIDE-like editor for CPI Groovy scripts: run them on a script-runner iFlow (body, headers, properties, console), save scripts with versions and named inputs (body, headers, properties) in the app DB, download scripts read only from DEV iFlows / Script Collections. See [docs/groovy-ide.md](docs/groovy-ide.md). |
+| **Endpoints** | Lists the inbound endpoints of deployed iFlows on DEV and PROD (tenant, iFlow, adapter, URL); the detail view adds the sender channel's authentication and access role (user role) and deployment info (version, status, deployed by/on). Read only. |
 | **Configuration** | Maintains DEV/PROD connections using direct credentials (encrypted secret) or a BTP Destination, with enabled and Allow CPI modifications switches and a "Test connection" action. |
 
 ## Quick start (local)
@@ -60,6 +61,7 @@ app/
   configuration/          Fiori Elements app (Configuration)
   version-comparator/webapp/  freeform UI5 app
   groovy-ide/webapp/      freeform UI5 app (Groovy IDE, sap.ui.codeeditor)
+  endpoints/webapp/       freeform UI5 app (Endpoints list/detail)
 docs/adding-a-feature.md  how to add a feature (the plugin recipe)
 docs/deployment.md        deploying to Cloud Foundry
 mta.yaml, approuter/      deployment descriptor and the approuter (login, routing)
@@ -86,7 +88,8 @@ Details and templates: **[docs/adding-a-feature.md](docs/adding-a-feature.md)**.
 | `/odata/v4/features` | any authenticated user | feature list for the side navigation |
 | `/odata/v4/config` | Admin | `Connections` (DEV/PROD) and `ScriptExecutor` (Groovy IDE runner), draft-enabled, actions `test`, `setSecret` |
 | `/odata/v4/version-comparator` | Viewer, Admin | `listPackages()`, `listArtifacts(packageId)`, `compare(packageId, artifactId?)` |
-| `/odata/v4/groovy-ide` | Viewer (read), Developer | `Scripts`, `ScriptVersions`, `TestCases`, `saveVersion`, `run`, `runTests`, `executorStatus()`, DEV download value helps |
+| `/odata/v4/endpoints` | Viewer, Admin | `listEndpoints()`, `endpointDetails(tenant, iflowId, url)` |
+| `/odata/v4/groovy-ide` | Viewer (read), Developer | `Scripts`, `ScriptVersions`, `ScriptInputs`, `saveVersion`, `run`, `executorStatus()`, DEV download value helps |
 
 Metadata: `http://localhost:4004/odata/v4/<service>/$metadata`.
 

@@ -151,41 +151,34 @@
                     </Table>
                   </ScrollContainer>
                 </IconTabFilter>
-                <IconTabFilter key="tests" text="{i18n>testCases}" count="{= ${view>/testCases}.length }" enabled="{= !!${view>/script} }">
+                <IconTabFilter key="inputs" text="{i18n>savedInputs}" count="{= ${view>/inputs}.length }" enabled="{= !!${view>/script} }">
                   <ScrollContainer vertical="true" height="100%">
-                    <Table items="{view>/testCases}" noDataText="{i18n>noTestCases}">
+                    <Table items="{view>/inputs}" noDataText="{i18n>noInputs}">
                       <headerToolbar>
                         <OverflowToolbar>
-                          <Text text="{view>/testSummary}" tooltip="{view>/testSummary}">
+                          <Text text="{parts: ['view>/loadedInputId', 'view>/inputs'], formatter: '.loadedInputText'}" tooltip="{i18n>loadedInputTooltip}">
                             <layoutData><ToolbarLayoutData shrinkable="true"/></layoutData>
                           </Text>
                           <ToolbarSpacer/>
-                          <Button icon="sap-icon://add" text="{i18n>saveTestCase}" press=".onOpenTestCaseDialog" visible="{view>/canEdit}">
-                            <layoutData><OverflowToolbarLayoutData priority="NeverOverflow"/></layoutData>
-                          </Button>
-                          <Button icon="sap-icon://media-play" text="{i18n>runAll}" press=".onRunTests" visible="{view>/canEdit}" enabled="{= ${view>/executorEnabled} &amp;&amp; ${view>/testCases}.length > 0 }">
+                          <Button icon="sap-icon://add" text="{i18n>newInput}" tooltip="{i18n>newInputTooltip}" press=".onNewInput" visible="{view>/canEdit}">
                             <layoutData><OverflowToolbarLayoutData priority="NeverOverflow"/></layoutData>
                           </Button>
                         </OverflowToolbar>
                       </headerToolbar>
                       <columns>
                         <Column><Text text="{i18n>name}"/></Column>
-                        <Column width="9rem"><Text text="{i18n>result}"/></Column>
-                        <Column width="8.5rem" hAlign="End"/>
+                        <Column width="10rem" minScreenWidth="40rem"><Text text="{i18n>changed}"/></Column>
+                        <Column width="9rem" hAlign="End"/>
                       </columns>
                       <items>
-                        <ColumnListItem highlight="{= ${view>ID} === ${view>/loadedTestCaseId} ? 'Information' : 'None' }">
-                          <ObjectIdentifier title="{view>name}" text="{view>compareMode}"/>
-                          <ObjectStatus
-                            text="{path: 'view>lastStatus', formatter: '.formatter.testText'}"
-                            state="{path: 'view>lastStatus', formatter: '.formatter.testState'}"
-                            icon="{path: 'view>lastStatus', formatter: '.formatter.testIcon'}"
-                            active="{= !!${view>lastStatus} }"
-                            press=".onShowTestResult"/>
+                        <ColumnListItem type="Active" press=".onLoadInput" tooltip="{i18n>loadInput}"
+                          highlight="{= ${view>ID} === ${view>/loadedInputId} ? 'Information' : 'None' }">
+                          <ObjectIdentifier title="{view>name}" text="{path: 'view>', formatter: '.inputSummary'}"/>
+                          <ObjectIdentifier title="{view>modifiedBy}" text="{path: 'view>modifiedAt', formatter: '.formatter.dateTime'}"/>
                           <HBox justifyContent="End">
-                            <Button icon="sap-icon://open-command-field" type="Transparent" tooltip="{i18n>loadTestCase}" press=".onLoadTestCase"/>
-                            <Button icon="sap-icon://media-play" type="Transparent" tooltip="{i18n>runTestCase}" press=".onRunTestCase" visible="{view>/canEdit}" enabled="{view>/executorEnabled}"/>
-                            <Button icon="sap-icon://delete" type="Transparent" tooltip="{i18n>delete}" press=".onDeleteTestCase" visible="{view>/canEdit}"/>
+                            <Button icon="sap-icon://media-play" type="Transparent" tooltip="{i18n>loadAndRun}" press=".onRunInput" visible="{view>/canEdit}" enabled="{view>/executorEnabled}"/>
+                            <Button icon="sap-icon://edit" type="Transparent" tooltip="{i18n>editInput}" press=".onEditInput" visible="{view>/canEdit}"/>
+                            <Button icon="sap-icon://delete" type="Transparent" tooltip="{i18n>delete}" press=".onDeleteInput" visible="{view>/canEdit}"/>
                           </HBox>
                         </ColumnListItem>
                       </items>
@@ -339,37 +332,16 @@
         <endButton><Button text="{i18n>close}" press=".onCloseDialog" app:dialog="diffDialog"/></endButton>
       </Dialog>
 
-      <!-- save test case -->
-      <Dialog id="testCaseDialog" title="{i18n>saveTestCaseTitle}" contentWidth="44rem" contentHeight="32rem" resizable="true" verticalScrolling="false">
-        <VBox renderType="Bare" class="gideDialogBody">
-          <Text text="{i18n>testCaseHint}" class="sapUiSmallMarginBottom"/>
-          <Label text="{i18n>name}" required="true"/>
-          <Input value="{view>/testCase/name}" maxLength="120"/>
-          <Label text="{i18n>compareMode}" class="sapUiSmallMarginTop"/>
-          <SegmentedButton selectedKey="{view>/testCase/compareMode}">
-            <items>
-              <SegmentedButtonItem key="TRIMMED" text="{i18n>compareTRIMMED}"/>
-              <SegmentedButtonItem key="EXACT" text="{i18n>compareEXACT}"/>
-              <SegmentedButtonItem key="JSON" text="JSON"/>
-              <SegmentedButtonItem key="XML" text="XML"/>
-            </items>
-          </SegmentedButton>
-          <HBox alignItems="Center" class="sapUiSmallMarginTop" renderType="Bare">
-            <Label text="{i18n>expectedBody}" class="sapUiSmallMarginEnd"/>
-            <Button text="{i18n>useLastOutput}" type="Transparent" press=".onUseLastOutput" enabled="{view>/output/has}"/>
-          </HBox>
-          <ce:CodeEditor id="expectedEditor" type="{view>/testCase/expectedType}" colorTheme="tomorrow_night"
-            value="{path: 'view>/testCase/expectedBody', mode: 'OneWay'}" liveChange=".onExpectedLiveChange" height="auto">
-            <ce:layoutData><FlexItemData growFactor="1" minHeight="6rem"/></ce:layoutData>
-          </ce:CodeEditor>
+      <!-- saved input: new / edit -->
+      <Dialog id="inputDialog" title="{= ${view>/inputEdit/mode} === 'update' ? ${i18n>editInputTitle} : ${i18n>newInputTitle} }" contentWidth="32rem" class="sapUiContentPadding">
+        <VBox renderType="Bare">
+          <Text text="{i18n>newInputHint}" class="sapUiSmallMarginBottom" visible="{= ${view>/inputEdit/mode} !== 'update' }"/>
+          <Label text="{i18n>name}" required="true" labelFor="inputName"/>
+          <Input id="inputName" value="{view>/inputEdit/name}" maxLength="120" submit=".onSaveInput"/>
+          <CheckBox text="{i18n>replaceInput}" selected="{view>/inputEdit/replaceInput}" visible="{= ${view>/inputEdit/mode} === 'update' }" class="sapUiSmallMarginTop"/>
         </VBox>
-        <buttons>
-          <Button text="{i18n>updateTestCase}" type="Emphasized" press=".onSaveTestCase" visible="{= !!${view>/loadedTestCaseId} }"
-            enabled="{= !!${view>/testCase/name} }" app:mode="update"/>
-          <Button text="{i18n>saveAsNewTestCase}" type="{= ${view>/loadedTestCaseId} ? 'Default' : 'Emphasized' }" press=".onSaveTestCase"
-            enabled="{= !!${view>/testCase/name} }" app:mode="create"/>
-          <Button text="{i18n>cancel}" press=".onCloseDialog" app:dialog="testCaseDialog"/>
-        </buttons>
+        <beginButton><Button text="{i18n>save}" type="Emphasized" press=".onSaveInput" enabled="{= !!${view>/inputEdit/name} }"/></beginButton>
+        <endButton><Button text="{i18n>cancel}" press=".onCloseDialog" app:dialog="inputDialog"/></endButton>
       </Dialog>
     </dependents>
   </Page>

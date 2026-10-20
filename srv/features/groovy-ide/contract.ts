@@ -24,8 +24,6 @@ export interface RunOutput {
   error: string
 }
 
-export type CompareMode = 'EXACT' | 'TRIMMED' | 'JSON' | 'XML'
-
 /** Properties the runner iFlow itself sets; they are not part of the script's result. */
 const INTERNAL_PROPERTIES = new Set(['inputScript', 'consoleLog'])
 
@@ -97,35 +95,6 @@ export function parseResponse(status: number, data: unknown): RunOutput {
     properties: parseMap(unb64(json.properties)).filter(p => !INTERNAL_PROPERTIES.has(p.name)),
     console: unb64(json.console),
     error: unb64(json.error)
-  }
-}
-
-function normalizeXml(text: string): string {
-  return text.replace(/^﻿/, '').replace(/<\?xml[^>]*\?>/, '').replace(/<!--[\s\S]*?-->/g, '')
-    .replace(/>\s+</g, '><').trim()
-}
-
-function sortKeys(value: any): any {
-  if (Array.isArray(value)) return value.map(sortKeys)
-  if (value && typeof value === 'object') {
-    return Object.fromEntries(Object.keys(value).sort().map(k => [k, sortKeys(value[k])]))
-  }
-  return value
-}
-
-/** Compares an actual body with the expected one. JSON: semantic equality; XML: ignores formatting whitespace. */
-export function bodiesMatch(actual: string, expected: string, mode: CompareMode = 'TRIMMED'): boolean {
-  const lines = (s: string) => s.replace(/\r\n?/g, '\n')
-  switch (mode) {
-    case 'EXACT': return actual === expected
-    case 'JSON':
-      try {
-        return JSON.stringify(sortKeys(JSON.parse(actual))) === JSON.stringify(sortKeys(JSON.parse(expected)))
-      } catch {
-        return false
-      }
-    case 'XML': return normalizeXml(lines(actual)) === normalizeXml(lines(expected))
-    default: return lines(actual).trim() === lines(expected).trim()
   }
 }
 
