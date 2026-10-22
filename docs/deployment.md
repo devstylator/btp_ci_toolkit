@@ -134,6 +134,8 @@ Keep `ci-toolkit-secrets` and its key while any stored direct credentials are re
 - The approuter route `^/(.*)$` sends all traffic to the CAP server (`srv-api` destination) with `forwardAuthToken`,
   so CAP validates the XSUAA JWT. `csrfProtection` is on: the Version Comparator UI fetches a CSRF token before POSTs
   (Fiori Elements does it itself).
+- The `srv-api` destination has `timeout: 300000` (5 min; approuter default 30 s): a tenant-wide **Search** downloads
+  and scans every iFlow and Script Collection.
 - UI and OData are same-origin, so the absolute paths used by the launcher (`/odata/...`, `/configuration/webapp`)
   work unchanged. `scripts/copy-ui.mjs` copies `app/` (without `.cds` files) into `gen/srv/app`.
 - TypeScript is compiled during `cds build --production`; the production server runs plain JS (no `tsx`).

@@ -2,17 +2,23 @@ sap.ui.define([
   "sap/ui/core/mvc/Controller",
   "sap/ui/core/Component",
   "sap/ui/core/routing/HashChanger",
+  "sap/ui/core/Theming",
   "sap/ui/model/json/JSONModel"
-], function (Controller, Component, HashChanger, JSONModel) {
+], function (Controller, Component, HashChanger, Theming, JSONModel) {
   "use strict";
 
   const FEATURE_PARAM = "feature";
+  // also read by index.html before UI5 boots
+  const THEME_KEY = "btp-ci-toolkit.theme";
+  const LIGHT = "sap_horizon";
+  const DARK = "sap_horizon_dark";
 
   return Controller.extend("btp.toolkit.launcher.controller.App", {
     onInit() {
       this._features = new Map();
       this.getView().setModel(new JSONModel({
-        features: [], system: [], selected: "", error: "", crumbLinks: [], crumbCurrent: ""
+        features: [], system: [], selected: "", error: "", crumbLinks: [], crumbCurrent: "",
+        dark: Theming.getTheme() === DARK
       }), "nav");
       // Fiori elements apps navigate through the URL hash; mirror it in the breadcrumbs.
       this._onHashChange = () => this._updateBreadcrumbs();
@@ -48,6 +54,19 @@ sap.ui.define([
 
     onExit() {
       window.removeEventListener("hashchange", this._onHashChange);
+    },
+
+    /** Light/dark switch; remembered in this browser only (localStorage), nothing is stored on the server. */
+    onToggleTheme() {
+      const nav = this.getView().getModel("nav");
+      const dark = !nav.getProperty("/dark");
+      Theming.setTheme(dark ? DARK : LIGHT);
+      nav.setProperty("/dark", dark);
+      try {
+        localStorage.setItem(THEME_KEY, dark ? DARK : LIGHT);
+      } catch (e) {
+        // storage blocked (private mode): the switch still works for this page
+      }
     },
 
     onToggleSideNav() {

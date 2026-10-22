@@ -1,0 +1,141 @@
+<mvc:View
+  controllerName="btp.toolkit.search.controller.Main"
+  xmlns="sap.m"
+  xmlns:mvc="sap.ui.core.mvc"
+  xmlns:core="sap.ui.core"
+  xmlns:f="sap.f"
+  height="100%">
+  <f:DynamicPage id="listPage" headerExpanded="true" toggleHeaderOnTitleClick="true" fitContent="false" busy="{view>/busy}" busyIndicatorDelay="0">
+    <f:title>
+      <f:DynamicPageTitle>
+        <f:heading><Title text="{i18n>appTitle}"/></f:heading>
+        <f:snappedContent><Text text="{view>/criteriaText}"/></f:snappedContent>
+      </f:DynamicPageTitle>
+    </f:title>
+    <f:header>
+      <f:DynamicPageHeader pinnable="true">
+        <VBox renderType="Bare">
+          <FlexBox wrap="Wrap" alignItems="End" renderType="Bare">
+            <VBox class="sapUiSmallMarginEnd sapUiTinyMarginBottom" renderType="Bare">
+              <Label text="{i18n>tenant}" labelFor="tenant"/>
+              <Select id="tenant" selectedKey="{view>/tenant}" change=".onTenantChange" width="7rem">
+                <core:Item key="DEV" text="DEV"/>
+                <core:Item key="PROD" text="PROD"/>
+              </Select>
+            </VBox>
+            <VBox class="sapUiSmallMarginEnd sapUiTinyMarginBottom srchFilter" renderType="Bare">
+              <Label text="{i18n>package}" labelFor="package"/>
+              <HBox renderType="Bare">
+                <ComboBox
+                  id="package"
+                  width="18rem"
+                  selectedKey="{view>/packageId}"
+                  placeholder="{i18n>allPackages}"
+                  showSecondaryValues="true"
+                  busy="{view>/packagesBusy}"
+                  busyIndicatorDelay="0"
+                  items="{path: 'view>/packages', templateShareable: false}">
+                  <core:ListItem key="{view>id}" text="{view>name}" additionalText="{view>id}"/>
+                </ComboBox>
+                <Button icon="sap-icon://refresh" type="Transparent" tooltip="{i18n>reloadPackages}" press=".onLoadPackages"/>
+              </HBox>
+            </VBox>
+            <VBox class="sapUiSmallMarginEnd sapUiTinyMarginBottom srchFilter" renderType="Bare">
+              <Label text="{i18n>name}" labelFor="name"/>
+              <Input id="name" value="{view>/name}" placeholder="{i18n>namePlaceholder}" width="16rem" submit=".onSearch"/>
+            </VBox>
+            <VBox class="sapUiSmallMarginEnd sapUiTinyMarginBottom srchFilter" renderType="Bare">
+              <Label text="{i18n>value}" labelFor="value"/>
+              <Input id="value" value="{view>/value}" placeholder="{i18n>valuePlaceholder}" width="16rem" submit=".onSearch"/>
+            </VBox>
+            <VBox class="sapUiSmallMarginEnd sapUiTinyMarginBottom" renderType="Bare">
+              <Label text="{i18n>objectTypes}"/>
+              <HBox renderType="Bare">
+                <CheckBox text="{i18n>typesIFLOW}" selected="{view>/iflows}"/>
+                <CheckBox text="{i18n>typesSCRIPT}" selected="{view>/scripts}"/>
+              </HBox>
+            </VBox>
+            <VBox class="sapUiSmallMarginEnd sapUiTinyMarginBottom" renderType="Bare">
+              <Label text="{i18n>options}"/>
+              <CheckBox text="{i18n>caseSensitive}" selected="{view>/caseSensitive}"/>
+            </VBox>
+            <Button text="{i18n>search}" icon="sap-icon://search" type="Emphasized" press=".onSearch" class="sapUiTinyMarginBottom"/>
+          </FlexBox>
+          <Text text="{i18n>wildcardHint}" class="sapUiTinyMarginTop sapThemeLightText"/>
+        </VBox>
+      </f:DynamicPageHeader>
+    </f:header>
+    <f:content>
+      <VBox renderType="Bare">
+        <MessageStrip text="{view>/error}" type="Error" showIcon="true" visible="{= !!${view>/error}}" class="sapUiSmallMarginBottom"/>
+        <MessageStrip
+          text="{parts: ['i18n>summary', 'view>/result/summary/packages', 'view>/result/summary/artifacts', 'view>/result/summary/scripts', 'view>/result/summary/findings'], formatter: '.formatMessage'}"
+          type="Information"
+          showIcon="true"
+          visible="{= !!${view>/result} &amp;&amp; ${view>/result/success}}"
+          class="sapUiSmallMarginBottom"/>
+        <MessageStrip
+          text="{parts: ['i18n>failures', 'view>/result/summary/failures'], formatter: '.formatMessage'}"
+          type="Warning"
+          showIcon="true"
+          visible="{= ${view>/result/summary/failures} > 0}"
+          class="sapUiSmallMarginBottom">
+          <link><Link text="{i18n>log}" press=".onShowLog"/></link>
+        </MessageStrip>
+        <MessageStrip
+          text="{parts: ['i18n>truncated', 'view>/result/summary/findings'], formatter: '.formatMessage'}"
+          type="Warning"
+          showIcon="true"
+          visible="{= !!${view>/result/summary/truncated}}"
+          class="sapUiSmallMarginBottom"/>
+        <MessageStrip
+          text="{view>/failedText}"
+          type="Error"
+          showIcon="true"
+          visible="{= !!${view>/result} &amp;&amp; !${view>/result/success}}"
+          class="sapUiSmallMarginBottom">
+          <link><Link text="{i18n>log}" press=".onShowLog"/></link>
+        </MessageStrip>
+        <Table
+          id="findingTable"
+          items="{view>/findings}"
+          growing="true"
+          growingThreshold="100"
+          growingScrollToLoad="true"
+          sticky="ColumnHeaders,HeaderToolbar"
+          popinLayout="GridSmall"
+          contextualWidth="Auto"
+          noDataText="{= ${view>/result} ? ${i18n>noFindings} : ${i18n>noData}}">
+          <headerToolbar>
+            <OverflowToolbar>
+              <Title text="{view>/countText}" level="H2"/>
+              <ToolbarSpacer/>
+              <SearchField width="16rem" value="{view>/query}" placeholder="{i18n>filterResults}" liveChange=".onFilter" search=".onFilter" enabled="{= !!${view>/result}}"/>
+              <Button text="{i18n>log}" icon="sap-icon://list" type="Transparent" press=".onShowLog" enabled="{= !!${view>/result}}"/>
+            </OverflowToolbar>
+          </headerToolbar>
+          <columns>
+            <Column width="10rem" minScreenWidth="Desktop" demandPopin="true"><Text text="{i18n>colType}"/></Column>
+            <Column width="25%"><Text text="{i18n>colName}"/></Column>
+            <Column minScreenWidth="Desktop" demandPopin="true"><Text text="{i18n>colValue}"/></Column>
+            <Column width="30%" minScreenWidth="Tablet" demandPopin="true"><Text text="{i18n>colWhere}"/></Column>
+          </columns>
+          <items>
+            <ColumnListItem>
+              <cells>
+                <ObjectStatus
+                  text="{path: 'view>objectType', formatter: '.formatter.objectType'}"
+                  icon="{path: 'view>objectType', formatter: '.formatter.objectIcon'}"/>
+                <ObjectIdentifier title="{view>name}" text="{path: 'view>kind', formatter: '.formatter.kind'}"/>
+                <Text text="{path: 'view>value', formatter: '.formatter.value'}" wrapping="true" maxLines="3"/>
+                <ObjectIdentifier
+                  title="{view>artifactName}"
+                  text="{parts: ['view>packageId', 'view>scriptPath', 'view>line'], formatter: '.formatter.location'}"/>
+              </cells>
+            </ColumnListItem>
+          </items>
+        </Table>
+      </VBox>
+    </f:content>
+  </f:DynamicPage>
+</mvc:View>

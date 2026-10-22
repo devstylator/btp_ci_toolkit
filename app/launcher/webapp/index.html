@@ -4,10 +4,24 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>CPI Toolkit</title>
+  <script>
+    // Theme chosen in the header (stored per browser, see App.controller.js); otherwise follow the OS setting.
+    (function () {
+      var theme;
+      try {
+        theme = localStorage.getItem("btp-ci-toolkit.theme");
+      } catch (e) {
+        // storage blocked
+      }
+      if (theme !== "sap_horizon" && theme !== "sap_horizon_dark") {
+        theme = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "sap_horizon_dark" : "sap_horizon";
+      }
+      window["sap-ui-config"] = { theme: theme };
+    })();
+  </script>
   <script
     id="sap-ui-bootstrap"
     src="https://ui5.sap.com/1.136.0/resources/sap-ui-core.js"
-    data-sap-ui-theme="sap_horizon"
     data-sap-ui-resourceroots='{"btp.toolkit.launcher": "./"}'
     data-sap-ui-oninit="module:sap/ui/core/ComponentSupport"
     data-sap-ui-compatVersion="edge"

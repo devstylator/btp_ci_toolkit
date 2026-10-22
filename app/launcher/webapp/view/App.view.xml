@@ -13,6 +13,13 @@
         </Button>
         <Title text="{i18n>appTitle}" wrapping="false"/>
         <ToolbarSpacer/>
+        <Button
+          icon="{= ${nav>/dark} ? 'sap-icon://light-mode' : 'sap-icon://dark-mode'}"
+          tooltip="{= ${nav>/dark} ? ${i18n>lightMode} : ${i18n>darkMode}}"
+          type="Transparent"
+          press=".onToggleTheme">
+          <layoutData><OverflowToolbarLayoutData priority="NeverOverflow"/></layoutData>
+        </Button>
       </tnt:ToolHeader>
     </tnt:header>
     <tnt:sideContent>

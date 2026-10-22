@@ -11,6 +11,7 @@ Current features:
 | **Version Comparator** | Compares package / artifact versions between the DEV and PROD tenants (version numbers only), with a status per item (match, differs, missing in DEV/PROD) and a step log. Nothing is stored. |
 | **Groovy IDE** | GroovyIDE-like editor for CPI Groovy scripts: run them on a script-runner iFlow (body, headers, properties, console), save scripts with versions and named inputs (body, headers, properties) in the app DB, download scripts read only from DEV iFlows / Script Collections. See [docs/groovy-ide.md](docs/groovy-ide.md). |
 | **Endpoints** | Lists the inbound endpoints of deployed iFlows on DEV and PROD (tenant, iFlow, adapter, URL); the detail view adds the sender channel's authentication and access role (user role) and deployment info (version, status, deployed by/on). Read only. |
+| **Search** | Searches one tenant (all packages or one) for iFlow configuration parameters and, in Groovy scripts of iFlows and Script Collections, for declared variables and properties/headers read or set via the message API. Name and/or value patterns with `*` / `+` wildcards, optional case sensitivity; findings table with package, artifact and script line. Read only. |
 | **Configuration** | Maintains DEV/PROD connections using direct credentials (encrypted secret) or a BTP Destination, with enabled and Allow CPI modifications switches and a "Test connection" action. |
 
 ## Quick start (local)
@@ -62,6 +63,7 @@ app/
   version-comparator/webapp/  freeform UI5 app
   groovy-ide/webapp/      freeform UI5 app (Groovy IDE, sap.ui.codeeditor)
   endpoints/webapp/       freeform UI5 app (Endpoints list/detail)
+  search/webapp/          freeform UI5 app (Search)
 docs/adding-a-feature.md  how to add a feature (the plugin recipe)
 docs/deployment.md        deploying to Cloud Foundry
 mta.yaml, approuter/      deployment descriptor and the approuter (login, routing)
@@ -89,6 +91,7 @@ Details and templates: **[docs/adding-a-feature.md](docs/adding-a-feature.md)**.
 | `/odata/v4/config` | Admin | `Connections` (DEV/PROD) and `ScriptExecutor` (Groovy IDE runner), draft-enabled, actions `test`, `setSecret` |
 | `/odata/v4/version-comparator` | Viewer, Admin | `listPackages()`, `listArtifacts(packageId)`, `compare(packageId, artifactId?)` |
 | `/odata/v4/endpoints` | Viewer, Admin | `listEndpoints()`, `endpointDetails(tenant, iflowId, url)` |
+| `/odata/v4/search` | Viewer, Admin | `listPackages(tenant)`, `search(tenant, packageId, name, value, caseSensitive, iflows, scripts)` |
 | `/odata/v4/groovy-ide` | Viewer (read), Developer | `Scripts`, `ScriptVersions`, `ScriptInputs`, `saveVersion`, `run`, `executorStatus()`, DEV download value helps |
 
 Metadata: `http://localhost:4004/odata/v4/<service>/$metadata`.

@@ -59,6 +59,19 @@ export const features: FeatureDescriptor[] = [
     roles: ['Viewer', 'Admin']
   },
   {
+    ID: 'search',
+    title: 'Search',
+    subtitle: 'Find iFlow parameters, script variables, properties and headers by name or value',
+    icon: 'sap-icon://search',
+    route: 'search',
+    component: 'btp.toolkit.search',
+    componentUrl: '/search/webapp',
+    service: '/odata/v4/search',
+    position: 40,
+    group: 'FEATURE',
+    roles: ['Viewer', 'Admin']
+  },
+  {
     ID: 'configuration',
     title: 'Configuration',
     subtitle: 'DEV and PROD connections',

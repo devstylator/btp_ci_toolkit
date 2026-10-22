@@ -28,6 +28,7 @@ features, plus a link to Configuration. New features must be easy to add.
 | D15 | Groovy IDE data **is persisted** (exception to D9 for this feature): `Scripts` (working copy), immutable `ScriptVersions`, `ScriptInputs` (named run inputs per script); shared by all users, owner/changer recorded via `managed`. Run results are not stored. |
 | D16 | Scripts are downloaded **read only from DEV** only (iFlows and Script Collections, active version, `$value` zip); nothing is uploaded to CPI. Standalone scripts that exist only in the app DB are allowed. |
 | D17 | **Endpoints** lists inbound endpoints from the CPI `ServiceEndpoints` API (deployed artifacts with an HTTP-based sender: HTTPS, SOAP, IDoc, OData, AS2; polling senders have no endpoint). The API has no access role, so the detail view downloads the iFlow (runtime artifact `$value`, design-time active version as fallback) and parses the sender channel from the `.iflw`; `{{parameters}}` are resolved from `Configurations`. Read only, nothing persisted, Viewer/Admin. |
+| D18 | **Search** reads one tenant at a time (DEV or PROD, chosen by the user), design-time **active** versions: iFlow configuration parameters from the `Configurations` API and Groovy files (`.groovy`/`.gsh`) from the iFlow / Script Collection `$value` zips. Scripts are scanned with a lightweight heuristic (no Groovy parser). Patterns are **contains** matches with wildcards `*` (any text) and `+` (one character). Read only, nothing persisted, Viewer/Admin. |
 
 ## 3. Architecture
 ```
@@ -52,6 +53,7 @@ app/                        UI (static, served by CAP locally; one folder per UI
   version-comparator/webapp/  freeform UI5 app (view/controller/formatter/i18n)
   groovy-ide/webapp/        freeform UI5 app with sap.ui.codeeditor (Groovy IDE)
   endpoints/webapp/         freeform UI5 app (Endpoints list -> detail, NavContainer)
+  search/webapp/            freeform UI5 app (Search: filter header + findings table)
 xs-security.json            roles Viewer / Admin / Developer
 ```
 
@@ -94,6 +96,7 @@ GitHub: https://github.com/devstylator/btp_ci_toolkit (branch `main`). Docs: [RE
 - FR-NAV-2 ✅ Launcher UI with left navigation built from `Features` (features on top, `SYSTEM` group pinned to the bottom, collapsible via the menu button). The selected feature is kept in the URL (`?feature=<route>`) and the first feature opens by default.
 - FR-NAV-4 ✅ Breadcrumbs above every feature (launcher level), derived from the URL hash of the embedded app: `Configuration / Connections / DEV`. Every crumb except the last is a link; clicking `Configuration` or `Connections` goes back to the list.
 - FR-NAV-5 ✅ Clicking a side-nav entry always opens the start page of that feature (switching features clears the hash, clicking the already open feature returns to its start page). Technical note: the hash must be cleared through `sap.ui.core.routing.HashChanger` (UI5 caches the last hash); the previous feature component is destroyed first.
+- FR-NAV-6 ✅ Light/dark theme switch (`sap_horizon` / `sap_horizon_dark`) at the top right of the launcher header. The choice is stored in the browser's `localStorage` (key `btp-ci-toolkit.theme`, per browser profile, not in the DB) and applied before UI5 boots; without a stored choice the OS setting (`prefers-color-scheme`) is used.
 - FR-NAV-3 ✅ `Features` additionally exposes `component` and `componentUrl` (UI5 component to load).
 
 ### 4.4 Groovy IDE (✅ backend, ✅ UI) – see [docs/groovy-ide.md](docs/groovy-ide.md)
@@ -111,6 +114,16 @@ GitHub: https://github.com/devstylator/btp_ci_toolkit (branch `main`). Docs: [RE
 - FR-EP-3 ✅ `endpointDetails(tenant, iflowId, url)` returns deployment info (`IntegrationRuntimeArtifacts`: version, status, deployed by/on) and the sender channel(s) whose address matches the URL (wildcards supported; all sender channels with `matched=false` otherwise): adapter, address, authentication, user role, allowed certificates, all channel properties (credential-like keys dropped). Content source (RUNTIME/DESIGNTIME/NONE) and partial failures are reported as messages. Not configured -> 412, bad tenant -> 400, CPI failure -> 502.
 - FR-EP-4 ✅ UI: table (tenant, iFlow, adapter, endpoint) with tenant filter (All/DEV/PROD), search (iFlow, adapter, URL) and reload; click opens the detail page (endpoint, deployment, access per sender channel, collapsible property list, copy URL). Navigation inside the component, URL hash untouched.
 - FR-EP-5 ⬜ Verify sender-channel property names (`senderAuthType`, `userRole`, `clientCertificates`) and the runtime `$value` format against a real tenant (the raw property list in the detail view shows the actual names).
+
+### 4.6 Search (✅ backend, ✅ UI) – D18
+- FR-SRCH-1 ✅ Filters: tenant (DEV/PROD), package (optional, value help `listPackages(tenant)`, type-ahead; empty = all packages), name pattern, value pattern (at least one required; both must match when both are given), object types *iFlow parameters* and/or *Scripts* (default both), *Case sensitive* (default off).
+- FR-SRCH-2 ✅ Patterns match anywhere in the text; `*` = any text (also empty), `+` = exactly one character, all other characters literal.
+- FR-SRCH-3 ✅ iFlow parameters: `IntegrationDesigntimeArtifacts(Id,Version='active')/Configurations` of every iFlow in scope; finding = parameter key (name), value, data type.
+- FR-SRCH-4 ✅ Scripts: all `.groovy`/`.gsh` files in the active-version zips of iFlows and Script Collections. Only these are reported (comments and string contents ignored, names must be string literals):
+  variables declared in the code (`def`/`var`/typed declarations; value = initializer), properties and headers read via the message API (`message.getProperty("x")`, `getHeader("x", ...)`, `getProperties()/getHeaders().get("x")`, `getHeaders().getHeader("x")`, `message.headers["x"]`) and written (`setProperty`/`setHeader("x", value)`, `getProperties()/getHeaders().put("x", value)`, `message.headers["x"] = value`; value = the passed expression). `System.getProperty` is ignored.
+- FR-SRCH-5 ✅ `search(...)` returns `success`, `summary` (packages, artifacts, scripts, findings, failures, truncated), `findings` and a timestamped step `log`. Artifacts that cannot be read are skipped with a WARN (search continues); unknown package / package list failure -> `success=false` with ERROR; not configured tenant -> 412; bad input -> 400. At most 5000 findings (`truncated`). CPI calls run with at most 6 in parallel. Nothing is stored.
+- FR-SRCH-6 ✅ UI: filters in a collapsible DynamicPage header; findings table (type, name + kind, value, artifact + package / script path:line) with a client-side filter and a log dialog. Rows are not clickable (no detail page for now, removed 2026-10-22).
+- FR-SRCH-7 ⬜ Verify against a real tenant (performance of a tenant-wide search, `Configurations` for iFlows without externalized parameters, Script Collection `$value`).
 
 ## 5. Non-functional
 - NFR-1 Secrets never logged, never returned. `SECRET_KEY` mandatory in production (app fails otherwise); dev falls back to a fixed local key.
@@ -136,6 +149,8 @@ GitHub: https://github.com/devstylator/btp_ci_toolkit (branch `main`). Docs: [RE
 8. 🚧 Groovy IDE: deploy the runner iFlow on the DEV/trial tenant, configure the executor, assign `CiToolkitDeveloper`, verify against the real runner (verified locally against a fake runner with the same contract and real DEV downloads).
 
 ## 8. Changelog
+- 2026-10-22: Search: detail column removed, findings rows are no longer clickable (backend no longer returns code snippets). Launcher: light/dark theme switch stored in the browser (FR-NAV-6).
+- 2026-10-22: Search feature (D18, FR-SRCH-1..7): `SearchService` (`listPackages`, `search`), Groovy scanner and wildcard matcher, UI app (FlexibleColumnLayout), tests with a fake tenant; approuter destination timeout raised to 5 min; test ZIP writer moved to `test/zip.ts`.
 - 2026-10-20: Endpoints: `ServiceEndpoints.Id` is an endpoint key (`<iflow>$endpointAddress=<path>`), not the artifact ID; the iFlow ID is now resolved against `IntegrationRuntimeArtifacts` (by ID before `$`, then by name). Details no longer fail with 502 when the single deployed-artifact GET fails (falls back to the artifact list; reported as a message with the HTTP status).
 - 2026-10-20: Endpoints: fixed detail page not opening (HBox inside SimpleForm broke rendering); copy-URL button moved to the page header.
 - 2026-10-20: Endpoints feature (D17, FR-EP-1..5): `EndpointsService` (`listEndpoints`, `endpointDetails`), iFlow sender channel parser, UI app, tests with a fake tenant.
