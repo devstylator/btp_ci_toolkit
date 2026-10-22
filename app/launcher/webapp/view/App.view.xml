@@ -11,6 +11,7 @@
         <Button icon="sap-icon://menu2" type="Transparent" tooltip="{i18n>toggleMenu}" press=".onToggleSideNav">
           <layoutData><OverflowToolbarLayoutData priority="NeverOverflow"/></layoutData>
         </Button>
+        <Image src="{= ${nav>/dark} ? ${nav>/logoDark} : ${nav>/logoLight}}" alt="{i18n>logoAlt}" width="1.75rem" height="1.75rem" decorative="false"/>
         <Title text="{i18n>appTitle}" wrapping="false"/>
         <ToolbarSpacer/>
         <Button

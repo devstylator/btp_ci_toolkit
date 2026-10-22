@@ -18,7 +18,10 @@ sap.ui.define([
       this._features = new Map();
       this.getView().setModel(new JSONModel({
         features: [], system: [], selected: "", error: "", crumbLinks: [], crumbCurrent: "",
-        dark: Theming.getTheme() === DARK
+        dark: Theming.getTheme() === DARK,
+        // replace img/logo-light.svg / img/logo-dark.svg to use a custom logo
+        logoLight: sap.ui.require.toUrl("btp/toolkit/launcher/img/logo-light.svg"),
+        logoDark: sap.ui.require.toUrl("btp/toolkit/launcher/img/logo-dark.svg")
       }), "nav");
       // Fiori elements apps navigate through the URL hash; mirror it in the breadcrumbs.
       this._onHashChange = () => this._updateBreadcrumbs();

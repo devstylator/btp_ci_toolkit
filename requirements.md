@@ -97,6 +97,7 @@ GitHub: https://github.com/devstylator/btp_ci_toolkit (branch `main`). Docs: [RE
 - FR-NAV-4 ✅ Breadcrumbs above every feature (launcher level), derived from the URL hash of the embedded app: `Configuration / Connections / DEV`. Every crumb except the last is a link; clicking `Configuration` or `Connections` goes back to the list.
 - FR-NAV-5 ✅ Clicking a side-nav entry always opens the start page of that feature (switching features clears the hash, clicking the already open feature returns to its start page). Technical note: the hash must be cleared through `sap.ui.core.routing.HashChanger` (UI5 caches the last hash); the previous feature component is destroyed first.
 - FR-NAV-6 ✅ Light/dark theme switch (`sap_horizon` / `sap_horizon_dark`) at the top right of the launcher header. The choice is stored in the browser's `localStorage` (key `btp-ci-toolkit.theme`, per browser profile, not in the DB) and applied before UI5 boots; without a stored choice the OS setting (`prefers-color-scheme`) is used.
+- FR-NAV-7 ✅ Logo in the launcher header between the menu button and the app title, one file per theme, `app/launcher/webapp/img/logo-light.svg` and `logo-dark.svg`, switched together with the theme (replace the files to use a custom logo; shown at 1.75rem × 1.75rem).
 - FR-NAV-3 ✅ `Features` additionally exposes `component` and `componentUrl` (UI5 component to load).
 
 ### 4.4 Groovy IDE (✅ backend, ✅ UI) – see [docs/groovy-ide.md](docs/groovy-ide.md)
@@ -149,6 +150,7 @@ GitHub: https://github.com/devstylator/btp_ci_toolkit (branch `main`). Docs: [RE
 8. 🚧 Groovy IDE: deploy the runner iFlow on the DEV/trial tenant, configure the executor, assign `CiToolkitDeveloper`, verify against the real runner (verified locally against a fake runner with the same contract and real DEV downloads).
 
 ## 8. Changelog
+- 2026-10-22: Launcher: logo in the header, separate files for light and dark theme (FR-NAV-7, `app/launcher/webapp/img/logo-light.svg`, `logo-dark.svg`).
 - 2026-10-22: Search: detail column removed, findings rows are no longer clickable (backend no longer returns code snippets). Launcher: light/dark theme switch stored in the browser (FR-NAV-6).
 - 2026-10-22: Search feature (D18, FR-SRCH-1..7): `SearchService` (`listPackages`, `search`), Groovy scanner and wildcard matcher, UI app (FlexibleColumnLayout), tests with a fake tenant; approuter destination timeout raised to 5 min; test ZIP writer moved to `test/zip.ts`.
 - 2026-10-20: Endpoints: `ServiceEndpoints.Id` is an endpoint key (`<iflow>$endpointAddress=<path>`), not the artifact ID; the iFlow ID is now resolved against `IntegrationRuntimeArtifacts` (by ID before `$`, then by name). Details no longer fail with 502 when the single deployed-artifact GET fails (falls back to the artifact list; reported as a message with the HTTP status).
