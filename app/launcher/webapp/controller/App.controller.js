@@ -18,6 +18,8 @@ sap.ui.define([
       this._features = new Map();
       this.getView().setModel(new JSONModel({
         features: [], system: [], selected: "", error: "", crumbLinks: [], crumbCurrent: "",
+        // busy indicator over the feature area while the feature list or a feature component is loading
+        loading: true,
         dark: Theming.getTheme() === DARK,
         // replace img/logo-light.svg / img/logo-dark.svg to use a custom logo
         logoLight: sap.ui.require.toUrl("btp/toolkit/launcher/img/logo-light.svg"),
@@ -48,9 +50,11 @@ sap.ui.define([
         if (initial) {
           await this._open(initial.ID, true);
         } else {
+          nav.setProperty("/loading", false);
           nav.setProperty("/error", text("noFeatures"));
         }
       } catch (e) {
+        nav.setProperty("/loading", false);
         nav.setProperty("/error", text("loadError", e.message));
       }
     },
@@ -129,6 +133,7 @@ sap.ui.define([
       const container = this.byId("container");
       nav.setProperty("/selected", id);
       nav.setProperty("/error", "");
+      nav.setProperty("/loading", true);
 
       const url = new URL(window.location.href);
       url.searchParams.set(FEATURE_PARAM, feature.route);
@@ -163,6 +168,11 @@ sap.ui.define([
       } catch (e) {
         const bundle = this.getOwnerComponent().getModel("i18n").getResourceBundle();
         nav.setProperty("/error", bundle.getText("featureLoadError", [feature.title, e.message]));
+      } finally {
+        // a newer _open owns the indicator if the user switched features in the meantime
+        if (nav.getProperty("/selected") === id) {
+          nav.setProperty("/loading", false);
+        }
       }
     }
   });

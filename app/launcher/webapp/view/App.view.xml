@@ -52,7 +52,8 @@
               showIcon="true"
               visible="{= !!${nav>/error}}"
               class="sapUiSmallMargin"/>
-            <core:ComponentContainer id="container" height="100%" width="100%" async="true" lifecycle="Container">
+            <core:ComponentContainer id="container" height="100%" width="100%" async="true" lifecycle="Container"
+              busy="{nav>/loading}" busyIndicatorDelay="0">
               <core:layoutData><FlexItemData growFactor="1" minHeight="0"/></core:layoutData>
             </core:ComponentContainer>
           </VBox>
