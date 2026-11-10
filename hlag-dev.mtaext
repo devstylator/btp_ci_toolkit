@@ -1,0 +1,14 @@
+_schema-version: 3.3.0
+# Deployment extension for the Hapag-Lloyd development subaccount (eu10-004, space dev_applications).
+# Usage: cf deploy mta_archives/btp-ci-toolkit_1.0.0.mtar -e hlag-dev.mtaext
+# Note: the CAP server keeps its public route. An internal-only route (apps.internal) needs a CF network policy,
+# which requires the network.write scope (not granted to our CF users here).
+ID: btp-ci-toolkit.hlag-dev
+extends: btp-ci-toolkit
+
+resources:
+  # The org name contains spaces and is too long for the default xsappname (btp-ci-toolkit-${org}-${space})
+  - name: btp-ci-toolkit-auth
+    parameters:
+      config:
+        xsappname: btp-ci-toolkit-${space}

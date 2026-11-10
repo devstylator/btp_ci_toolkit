@@ -120,6 +120,19 @@ Keep `ci-toolkit-secrets` and its key while any stored direct credentials are re
 - HANA Cloud instance `trial-hana` (plan `hana-free`), mapped to the org/space. **Trial instances stop every night**: start it in
   HANA Cloud Central before using the app, otherwise the server cannot reach its database.
 
+## Current deployment (Hapag-Lloyd development)
+
+- Org/space: `Hapag Lloyd Aktiengesellschaft_hlag-development-general-01_ext` / `dev_applications` (eu10-004),
+  URL: https://hapag-lloyd-aktiengesellschaft-hlag-development-general17fa37bf.cfapps.eu10-004.hana.ondemand.com
+- HANA Cloud instance `development-hana` (plan `hana`), created in the same space.
+- The org name has spaces and is too long for the default `xsappname`, so this landscape deploys with the extension
+  [hlag-dev.mtaext](../hlag-dev.mtaext) (`xsappname: btp-ci-toolkit-${space}`):
+  `cf deploy mta_archives/btp-ci-toolkit_1.0.0.mtar -e hlag-dev.mtaext`
+- Open the app only via the approuter URL above. The CAP server (`btp-ci-toolkit-srv`) has a public route too; opened
+  directly it shows the launcher without login, but every OData call returns 401. Making it internal-only
+  (`apps.internal` route) needs `cf add-network-policy`, which requires the `network.write` scope that our CF users
+  lack here.
+
 ## Operations
 
 | Task | Command |
