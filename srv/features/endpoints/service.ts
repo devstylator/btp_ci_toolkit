@@ -1,6 +1,8 @@
 import cds from '@sap/cds'
 import { CpiClient, CpiError } from '../../lib/cpi-client.js'
 import { loadConnection } from '../../lib/connections.js'
+import { CPI_CONCURRENCY, eachLimit } from '../../lib/async.js'
+import { anyMatcher } from '../../lib/pattern.js'
 import { adapterFromUrl, addressMatches, artifactIdFromEndpointId, findIflw, odataDate, parseSenderChannels, toSenderChannels } from './iflow.js'
 
 type Tenant = 'DEV' | 'PROD'
@@ -9,9 +11,6 @@ interface Message { tenant: Tenant; level: Level; message: string }
 
 const TENANTS: Tenant[] = ['DEV', 'PROD']
 const literal = (value: string) => `'${encodeURIComponent(value.replace(/'/g, "''"))}'`
-
-/** Request stand-in for `loadConnection` that throws instead of rejecting, so one tenant can be skipped. */
-const softReq = { reject: (status: number, message: string): never => { throw Object.assign(new Error(message), { status }) } }
 
 /** Turns CPI call failures into 502 responses. */
 const guard = (fn: (req: any) => Promise<any>) => async (req: any) => {
@@ -23,37 +22,79 @@ const guard = (fn: (req: any) => Promise<any>) => async (req: any) => {
   }
 }
 
-async function tenantEndpoints(tenant: Tenant, messages: Message[]) {
-  let client: CpiClient
-  try {
-    client = new CpiClient(await loadConnection(tenant, softReq))
-  } catch (e: any) {
-    messages.push({ tenant, level: 'WARN', message: `${tenant} skipped: ${e.message}` })
+interface EndpointRow {
+  tenant: Tenant
+  iflowId: string
+  iflowName: string
+  adapter: string
+  protocol: string
+  url: string
+  version: string
+  authentication: string
+  userRole: string
+  roleSource: string
+}
+
+/** All entry points of a tenant (ServiceEndpoints), iFlow IDs/names resolved against the deployed artifacts. */
+async function tenantEndpoints(client: CpiClient, tenant: Tenant, messages: Message[]): Promise<EndpointRow[]> {
+  const list = await client.get('ServiceEndpoints?$expand=EntryPoints')
+  if (!list) {
+    messages.push({ tenant, level: 'ERROR', message: `${tenant}: ServiceEndpoints API not available` })
     return []
   }
-  try {
-    const list = await client.get('ServiceEndpoints?$expand=EntryPoints')
-    if (!list) {
-      messages.push({ tenant, level: 'ERROR', message: `${tenant}: ServiceEndpoints API not available` })
-      return []
+  const runtime = await runtimeArtifacts(client, tenant, messages)
+  return list.flatMap((ep: any) => {
+    const artifact = resolveArtifact(ep, runtime)
+    return (ep.EntryPoints?.results ?? []).map((entry: any) => ({
+      tenant,
+      iflowId: artifact?.Id ?? artifactIdFromEndpointId(ep.Id),
+      iflowName: artifact?.Name || ep.Title || ep.Name || artifactIdFromEndpointId(ep.Id),
+      adapter: adapterFromUrl(entry.Url ?? '', ep.Protocol),
+      protocol: ep.Protocol ?? '',
+      url: entry.Url ?? '',
+      version: artifact?.Version ?? ep.Version ?? '',
+      authentication: '',
+      userRole: '',
+      roleSource: ''
+    }))
+  })
+}
+
+/** IDs of the iFlows in a package; undefined when the package does not exist. */
+async function packageIflowIds(client: CpiClient, packageId: string): Promise<Set<string> | undefined> {
+  const list = await client.get(`IntegrationPackages(${literal(packageId)})/IntegrationDesigntimeArtifacts`)
+  return list ? new Set(list.map((a: any) => a.Id)) : undefined
+}
+
+/** Sender channels of a deployed iFlow with parameters resolved; quiet (no messages) for list use. */
+async function senderChannels(client: CpiClient, id: string, tenant: Tenant, messages: Message[] = []) {
+  const { source, iflw } = await iflowContent(client, id, messages, tenant)
+  if (!iflw) return { source, channels: [] }
+  const parsed = parseSenderChannels(iflw)
+  const needsParams = parsed.some(c => [...c.props.values()].some(v => v.includes('{{')))
+  return { source, channels: toSenderChannels(parsed, needsParams ? await externalizedParams(client, id) : new Map()) }
+}
+
+const distinct = (values: string[]) => [...new Set(values.filter(Boolean))].join(', ')
+
+/** Fills authentication/user role of the rows (one iFlow download per distinct iFlow). */
+async function addAccessRoles(client: CpiClient, tenant: Tenant, rows: EndpointRow[], messages: Message[]) {
+  const byIflow = new Map<string, EndpointRow[]>()
+  for (const row of rows) byIflow.set(row.iflowId, [...(byIflow.get(row.iflowId) ?? []), row])
+  const failed: string[] = []
+  await eachLimit([...byIflow], CPI_CONCURRENCY, async ([id, list]) => {
+    const { source, channels } = await senderChannels(client, id, tenant)
+    if (source === 'NONE') failed.push(id)
+    for (const row of list) {
+      const matching = channels.filter(c => addressMatches(row.url, c.address))
+      const used = matching.length ? matching : channels
+      row.authentication = distinct(used.map(c => c.authentication))
+      row.userRole = distinct(used.map(c => c.userRole))
+      row.roleSource = source
     }
-    const runtime = await runtimeArtifacts(client, tenant, messages)
-    return list.flatMap((ep: any) => {
-      const artifact = resolveArtifact(ep, runtime)
-      return (ep.EntryPoints?.results ?? []).map((entry: any) => ({
-        tenant,
-        iflowId: artifact?.Id ?? artifactIdFromEndpointId(ep.Id),
-        iflowName: artifact?.Name || ep.Title || ep.Name || artifactIdFromEndpointId(ep.Id),
-        adapter: adapterFromUrl(entry.Url ?? '', ep.Protocol),
-        protocol: ep.Protocol ?? '',
-        url: entry.Url ?? '',
-        version: artifact?.Version ?? ep.Version ?? ''
-      }))
-    })
-  } catch (e) {
-    if (!(e instanceof CpiError)) throw e
-    messages.push({ tenant, level: 'ERROR', message: `${tenant}: ${e.message}` })
-    return []
+  })
+  if (failed.length) {
+    messages.push({ tenant, level: 'WARN', message: `Access role could not be read for ${failed.length} iFlow(s): ${failed.sort().join(', ')}` })
   }
 }
 
@@ -121,13 +162,41 @@ async function externalizedParams(client: CpiClient, id: string): Promise<Map<st
 
 export default class EndpointsService extends cds.ApplicationService {
   async init() {
-    this.on('listEndpoints', async () => {
+    this.on('listPackages', guard(async (req: any) => {
+      const client = await this.client(req)
+      const list = await client.get('IntegrationPackages') ?? []
+      return list.map((p: any) => ({ id: p.Id, name: p.Name })).sort((a, b) => a.id.localeCompare(b.id))
+    }))
+
+    this.on('listEndpoints', guard(async (req: any) => {
+      const client = await this.client(req)
+      const tenant = req.data.tenant as Tenant
+      const packageId = req.data.packageId?.trim() ?? ''
+      const adapter = req.data.adapter?.trim().toLowerCase() ?? ''
+      const iflowMatches = anyMatcher(req.data.iflow)
+      const urlMatches = anyMatcher(req.data.url)
+      const roleMatches = anyMatcher(req.data.role)
+      const withRoles = req.data.accessRoles !== false || !!req.data.role?.trim()
       const messages: Message[] = []
-      const lists = await Promise.all(TENANTS.map(t => tenantEndpoints(t, messages)))
-      const endpoints = lists.flat().sort((a, b) =>
-        a.iflowName.localeCompare(b.iflowName) || a.tenant.localeCompare(b.tenant) || a.url.localeCompare(b.url))
+
+      let rows = await tenantEndpoints(client, tenant, messages)
+      if (packageId) {
+        const ids = await packageIflowIds(client, packageId)
+        if (!ids) {
+          messages.push({ tenant, level: 'ERROR', message: `Package '${packageId}' not found on ${tenant}` })
+          return { endpoints: [], messages }
+        }
+        rows = rows.filter(r => ids.has(r.iflowId))
+      }
+      rows = rows.filter(r => iflowMatches(r.iflowName, r.iflowId) && urlMatches(r.url) &&
+        (!adapter || r.adapter.toLowerCase() === adapter))
+      if (withRoles) {
+        await addAccessRoles(client, tenant, rows, messages)
+        rows = rows.filter(r => roleMatches(r.userRole))
+      }
+      const endpoints = rows.sort((a, b) => a.iflowName.localeCompare(b.iflowName) || a.url.localeCompare(b.url))
       return { endpoints, messages }
-    })
+    }))
 
     this.on('endpointDetails', guard(async (req: any) => {
       const tenant = req.data.tenant as Tenant
@@ -147,14 +216,11 @@ export default class EndpointsService extends cds.ApplicationService {
         deployedOn: odataDate(runtime.DeployedOn)
       }
 
-      const { source, iflw } = await iflowContent(client, iflowId!, messages, tenant)
-      if (!iflw) {
+      const { source, channels: all } = await senderChannels(client, iflowId!, tenant, messages)
+      if (source === 'NONE') {
         messages.push({ tenant, level: 'WARN', message: 'iFlow content could not be downloaded; sender channel unknown' })
         return { deployment, channels: [], matched: false, contentSource: source, messages }
       }
-      const parsed = parseSenderChannels(iflw)
-      const needsParams = parsed.some(c => [...c.props.values()].some(v => v.includes('{{')))
-      const all = toSenderChannels(parsed, needsParams ? await externalizedParams(client, iflowId!) : new Map())
       const matching = all.filter(c => addressMatches(url, c.address))
       if (!all.length) messages.push({ tenant, level: 'WARN', message: 'No sender channel found in the iFlow' })
       else if (!matching.length) messages.push({ tenant, level: 'INFO', message: 'No sender channel address matched the URL; showing all sender channels' })
@@ -163,5 +229,13 @@ export default class EndpointsService extends cds.ApplicationService {
     }))
 
     return super.init()
+  }
+
+  /** Client for `req.data.tenant` (default DEV): 400 for an unknown tenant, 412 when not configured/disabled. */
+  private async client(req: any): Promise<CpiClient> {
+    const tenant = req.data.tenant ?? 'DEV'
+    if (!TENANTS.includes(tenant)) req.reject(400, 'tenant must be DEV or PROD')
+    req.data.tenant = tenant
+    return new CpiClient(await loadConnection(tenant, req))
   }
 }

@@ -5,7 +5,7 @@ import cds from '@sap/cds'
 import { encrypt } from '../srv/lib/crypto.js'
 import { zip } from './zip.js'
 import { scanGroovy } from '../srv/features/search/groovy.js'
-import { compilePattern, matcher } from '../srv/features/search/pattern.js'
+import { compilePattern, matcher } from '../srv/lib/pattern.js'
 
 const { UPDATE } = cds.ql
 let app: Server

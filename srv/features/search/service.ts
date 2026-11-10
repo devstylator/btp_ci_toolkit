@@ -4,7 +4,8 @@ import { loadConnection } from '../../lib/connections.js'
 import { readZip } from '../../lib/zip.js'
 import { isScriptPath } from '../groovy-ide/contract.js'
 import { scanGroovy } from './groovy.js'
-import { matcher } from './pattern.js'
+import { matcher } from '../../lib/pattern.js'
+import { CPI_CONCURRENCY, eachLimit } from '../../lib/async.js'
 
 type Tenant = 'DEV' | 'PROD'
 type Level = 'INFO' | 'WARN' | 'ERROR'
@@ -15,8 +16,7 @@ const ENTITY_SETS: Record<ArtifactType, string> = {
   IFLOW: 'IntegrationDesigntimeArtifacts',
   SCRIPT_COLLECTION: 'ScriptCollectionDesigntimeArtifacts'
 }
-/** Parallel CPI requests per search; keeps a tenant-wide search fast without flooding the tenant. */
-const CONCURRENCY = 6
+const CONCURRENCY = CPI_CONCURRENCY
 const MAX_FINDINGS = 5000
 
 const literal = (value: string) => `'${encodeURIComponent(value.replace(/'/g, "''"))}'`
@@ -45,14 +45,6 @@ const guard = (fn: (req: any) => Promise<any>) => async (req: any) => {
     if (e instanceof CpiError) req.reject(502, e.message)
     throw e
   }
-}
-
-/** Runs `fn` for all items with at most `limit` calls in flight. */
-async function eachLimit<T>(items: T[], limit: number, fn: (item: T) => Promise<void>) {
-  let next = 0
-  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, async () => {
-    while (next < items.length) await fn(items[next++])
-  }))
 }
 
 export default class SearchService extends cds.ApplicationService {

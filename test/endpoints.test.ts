@@ -96,6 +96,10 @@ before(async () => {
         { Id: 'Legacy$endpointAddress=cxf/legacy', Name: 'Legacy', Title: 'Legacy SOAP', Version: '2.0.0', Protocol: 'SOAP',
           EntryPoints: { results: [{ Name: 'Legacy', Url: `${tenant}/cxf/legacy`, Type: 'PROD' }] } }
       ] })
+    } else if (url.startsWith('/api/v1/IntegrationPackages?')) {
+      ok({ results: [{ Id: 'Sales', Name: 'Sales Integration' }, { Id: 'Finance', Name: 'Finance' }] })
+    } else if (url.startsWith("/api/v1/IntegrationPackages('Sales')/IntegrationDesigntimeArtifacts")) {
+      ok({ results: [{ Id: 'Orders', Name: 'Orders API', Version: '1.0.4' }] })
     } else if (url.startsWith('/api/v1/IntegrationRuntimeArtifacts?')) {
       ok({ results: [
         { Id: 'Orders', Name: 'Orders API', Version: '1.0.4', Status: 'STARTED' },
@@ -136,13 +140,41 @@ async function call(path: string, user = 'bob:bob') {
 }
 
 test('Endpoints service', async t => {
-  await t.test('lists DEV endpoints and skips the unconfigured PROD tenant with a warning', async () => {
+  await t.test('lists DEV endpoints (default tenant) with authentication and access role', async () => {
     const { status, body } = await call('listEndpoints()')
     assert.equal(status, 200)
-    assert.deepEqual(body.endpoints.map((e: any) => [e.tenant, e.iflowId, e.iflowName, e.adapter]), [
-      ['DEV', 'Legacy', 'Legacy SOAP', 'SOAP'], ['DEV', 'Orders', 'Orders API', 'HTTPS']
+    assert.deepEqual(body.endpoints.map((e: any) => [e.tenant, e.iflowId, e.iflowName, e.adapter, e.authentication, e.userRole, e.roleSource]), [
+      // Legacy: no channel address matches the URL -> all sender channels; parameter not resolvable (no configuration)
+      ['DEV', 'Legacy', 'Legacy SOAP', 'SOAP', 'RoleBased, ClientCertificate', '{{Sender Role}}', 'DESIGNTIME'],
+      ['DEV', 'Orders', 'Orders API', 'HTTPS', 'RoleBased', 'Orders.Send', 'RUNTIME']
     ])
-    assert.deepEqual(body.messages.map((m: any) => [m.tenant, m.level]), [['PROD', 'WARN']])
+    assert.deepEqual(body.messages, [])
+  })
+
+  await t.test('filters: iFlow, URL, adapter patterns; access roles can be skipped', async () => {
+    const ids = async (q: string) => (await call(`listEndpoints(${q})`)).body.endpoints.map((e: any) => e.iflowId)
+    assert.deepEqual(await ids(`tenant='DEV',iflow='orders*'`), ['Orders'])
+    assert.deepEqual(await ids(`tenant='DEV',iflow='SOAP'`), ['Legacy']) // matches the name
+    assert.deepEqual(await ids(`tenant='DEV',url=${lit('/cxf/*')}`), ['Legacy'])
+    assert.deepEqual(await ids(`tenant='DEV',adapter='https'`), ['Orders'])
+    const { body } = await call(`listEndpoints(tenant='DEV',iflow='Orders',accessRoles=false)`)
+    assert.deepEqual(body.endpoints.map((e: any) => [e.userRole, e.roleSource]), [['', '']])
+  })
+
+  await t.test('filters: access role pattern (forces reading roles) and package', async () => {
+    const ids = async (q: string) => (await call(`listEndpoints(${q})`)).body.endpoints.map((e: any) => e.iflowId)
+    assert.deepEqual(await ids(`tenant='DEV',role='orders.send',accessRoles=false`), ['Orders'])
+    assert.deepEqual(await ids(`tenant='DEV',packageId='Sales'`), ['Orders'])
+    const { body } = await call(`listEndpoints(tenant='DEV',packageId='Nope')`)
+    assert.deepEqual(body.endpoints, [])
+    assert.deepEqual(body.messages.map((m: any) => m.level), ['ERROR'])
+  })
+
+  await t.test('packages value help; unconfigured tenant -> 412, bad tenant -> 400', async () => {
+    const { body } = await call(`listPackages(tenant='DEV')`)
+    assert.deepEqual(body.value.map((p: any) => p.id), ['Finance', 'Sales'])
+    assert.equal((await call(`listEndpoints(tenant='PROD')`)).status, 412)
+    assert.equal((await call(`listEndpoints(tenant='QA')`)).status, 400)
   })
 
   await t.test('details: deployment, matched sender channel with resolved role from the runtime artifact', async () => {

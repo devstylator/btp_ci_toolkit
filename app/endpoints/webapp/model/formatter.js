@@ -18,6 +18,17 @@ sap.ui.define([], function () {
       return iso ? new Date(iso).toLocaleString() : "-";
     },
 
+    /** Access role cell: role, `-` when the channel has none, a hint when the iFlow could not be read. */
+    role(role, source) {
+      const bundle = this.getOwnerComponent().getModel("i18n").getResourceBundle();
+      if (source === "NONE") {
+        return bundle.getText("roleUnknown");
+      }
+      return role || bundle.getText("empty");
+    },
+
+    roleState: (source) => (source === "NONE" ? "Warning" : source === "DESIGNTIME" ? "Information" : "None"),
+
     contentSource(source) {
       return source ? this.getOwnerComponent().getModel("i18n").getResourceBundle().getText(`source${source}`) : "-";
     }

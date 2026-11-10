@@ -3,67 +3,161 @@
   xmlns="sap.m"
   xmlns:mvc="sap.ui.core.mvc"
   xmlns:core="sap.ui.core"
-  xmlns:f="sap.ui.layout.form"
+  xmlns:f="sap.f"
+  xmlns:form="sap.ui.layout.form"
+  xmlns:table="sap.ui.table"
+  xmlns:rowmodes="sap.ui.table.rowmodes"
   height="100%">
   <NavContainer id="nav" height="100%">
-    <Page id="listPage" title="{i18n>appTitle}" enableScrolling="true" busy="{view>/busy}" busyIndicatorDelay="0">
-      <content>
-        <MessageStrip
-          text="{view>/error}"
-          type="Error"
-          showIcon="true"
-          visible="{= !!${view>/error}}"
-          class="sapUiResponsiveMargin"/>
-        <VBox items="{view>/messages}" class="sapUiResponsiveMargin" visible="{= ${view>/messages}.length > 0}" renderType="Bare">
+    <f:DynamicPage id="listPage" headerExpanded="true" toggleHeaderOnTitleClick="true" fitContent="true" busy="{view>/busy}" busyIndicatorDelay="0">
+      <f:title>
+        <f:DynamicPageTitle>
+          <f:heading><Title text="{i18n>appTitle}"/></f:heading>
+          <f:snappedContent><Text text="{view>/criteriaText}"/></f:snappedContent>
+        </f:DynamicPageTitle>
+      </f:title>
+      <f:header>
+        <f:DynamicPageHeader pinnable="true">
+          <VBox renderType="Bare">
+            <FlexBox wrap="Wrap" alignItems="End" renderType="Bare">
+              <VBox class="sapUiSmallMarginEnd sapUiTinyMarginBottom" renderType="Bare">
+                <Label text="{i18n>colTenant}" labelFor="tenant"/>
+                <Select id="tenant" selectedKey="{view>/tenant}" change=".onTenantChange" width="7rem">
+                  <core:Item key="DEV" text="DEV"/>
+                  <core:Item key="PROD" text="PROD"/>
+                </Select>
+              </VBox>
+              <VBox class="sapUiSmallMarginEnd sapUiTinyMarginBottom" renderType="Bare">
+                <Label text="{i18n>package}" labelFor="package"/>
+                <HBox renderType="Bare">
+                  <ComboBox
+                    id="package"
+                    width="16rem"
+                    selectedKey="{view>/packageId}"
+                    placeholder="{i18n>allPackages}"
+                    showSecondaryValues="true"
+                    busy="{view>/packagesBusy}"
+                    busyIndicatorDelay="0"
+                    items="{path: 'view>/packages', templateShareable: false}">
+                    <core:ListItem key="{view>id}" text="{view>name}" additionalText="{view>id}"/>
+                  </ComboBox>
+                  <Button icon="sap-icon://refresh" type="Transparent" tooltip="{i18n>reloadPackages}" press=".onLoadPackages"/>
+                </HBox>
+              </VBox>
+              <VBox class="sapUiSmallMarginEnd sapUiTinyMarginBottom" renderType="Bare">
+                <Label text="{i18n>colIflow}" labelFor="iflow"/>
+                <Input id="iflow" value="{view>/iflow}" placeholder="{i18n>iflowPlaceholder}" width="14rem" submit=".onGo"/>
+              </VBox>
+              <VBox class="sapUiSmallMarginEnd sapUiTinyMarginBottom" renderType="Bare">
+                <Label text="{i18n>colEndpoint}" labelFor="url"/>
+                <Input id="url" value="{view>/url}" placeholder="{i18n>urlPlaceholder}" width="14rem" submit=".onGo"/>
+              </VBox>
+              <VBox class="sapUiSmallMarginEnd sapUiTinyMarginBottom" renderType="Bare">
+                <Label text="{i18n>colAdapter}" labelFor="adapter"/>
+                <Select id="adapter" selectedKey="{view>/adapter}" width="8rem">
+                  <core:Item key="" text="{i18n>all}"/>
+                  <core:Item key="HTTPS" text="HTTPS"/>
+                  <core:Item key="SOAP" text="SOAP"/>
+                  <core:Item key="IDoc" text="IDoc"/>
+                  <core:Item key="XI" text="XI"/>
+                  <core:Item key="OData" text="OData"/>
+                  <core:Item key="AS2" text="AS2"/>
+                  <core:Item key="AS4" text="AS4"/>
+                </Select>
+              </VBox>
+              <VBox class="sapUiSmallMarginEnd sapUiTinyMarginBottom" renderType="Bare">
+                <Label text="{i18n>colRole}" labelFor="role"/>
+                <Input id="role" value="{view>/role}" placeholder="{i18n>rolePlaceholder}" width="12rem" submit=".onGo"/>
+              </VBox>
+              <VBox class="sapUiSmallMarginEnd sapUiTinyMarginBottom" renderType="Bare">
+                <Label text="{i18n>options}"/>
+                <CheckBox text="{i18n>readRoles}" selected="{view>/accessRoles}" enabled="{= !${view>/role}}" tooltip="{i18n>readRolesTooltip}"/>
+              </VBox>
+              <Button text="{i18n>go}" icon="sap-icon://search" type="Emphasized" press=".onGo" class="sapUiTinyMarginBottom"/>
+            </FlexBox>
+            <Text text="{i18n>wildcardHint}" class="sapUiTinyMarginTop sapThemeLightText"/>
+          </VBox>
+        </f:DynamicPageHeader>
+      </f:header>
+      <f:content>
+        <VBox renderType="Bare" height="100%">
           <MessageStrip
-            text="{view>message}"
-            type="{path: 'view>level', formatter: '.formatter.messageType'}"
+            text="{view>/error}"
+            type="Error"
             showIcon="true"
-            class="sapUiTinyMarginBottom"/>
+            visible="{= !!${view>/error}}"
+            class="sapUiSmallMarginBottom"/>
+          <VBox items="{view>/messages}" visible="{= ${view>/messages}.length > 0}" renderType="Bare">
+            <MessageStrip
+              text="{view>message}"
+              type="{path: 'view>level', formatter: '.formatter.messageType'}"
+              showIcon="true"
+              class="sapUiSmallMarginBottom"/>
+          </VBox>
+          <table:Table
+            id="endpointTable"
+            rows="{view>/endpoints}"
+            selectionMode="None"
+            rowActionCount="1"
+            enableCellFilter="true"
+            alternateRowColors="true"
+            cellClick=".onCellClick"
+            rowsUpdated=".onRowsUpdated"
+            noData="{= ${view>/loaded} ? ${i18n>noEndpoints} : ${i18n>noData}}">
+            <table:layoutData><FlexItemData growFactor="1" baseSize="0%"/></table:layoutData>
+            <table:rowMode><rowmodes:Auto minRowCount="5"/></table:rowMode>
+            <table:extension>
+              <OverflowToolbar style="Clear">
+                <Title text="{view>/countText}" level="H2"/>
+                <ToolbarSpacer/>
+                <SearchField width="16rem" value="{view>/query}" placeholder="{i18n>filterResults}" liveChange=".onFilter" search=".onFilter" enabled="{view>/loaded}"/>
+                <Button icon="sap-icon://clear-filter" type="Transparent" tooltip="{i18n>clearFilters}" press=".onClearFilters" enabled="{view>/loaded}"/>
+              </OverflowToolbar>
+            </table:extension>
+            <table:rowActionTemplate>
+              <table:RowAction>
+                <table:RowActionItem type="Navigation" press=".onRowAction"/>
+              </table:RowAction>
+            </table:rowActionTemplate>
+            <table:columns>
+              <table:Column width="14rem" sortProperty="iflowName" filterProperty="iflowName">
+                <Label text="{i18n>iflowName}"/>
+                <table:template><Text text="{view>iflowName}" wrapping="false"/></table:template>
+              </table:Column>
+              <table:Column width="10rem" sortProperty="iflowId" filterProperty="iflowId">
+                <Label text="{i18n>iflowId}"/>
+                <table:template><Text text="{view>iflowId}" wrapping="false"/></table:template>
+              </table:Column>
+              <table:Column width="6rem" sortProperty="adapter" filterProperty="adapter">
+                <Label text="{i18n>colAdapter}"/>
+                <table:template><Text text="{path: 'view>adapter', formatter: '.formatter.value'}" wrapping="false"/></table:template>
+              </table:Column>
+              <table:Column minWidth="160" sortProperty="url" filterProperty="url">
+                <Label text="{i18n>colEndpoint}"/>
+                <table:template><Text text="{view>url}" wrapping="false" tooltip="{view>url}"/></table:template>
+              </table:Column>
+              <table:Column width="9rem" sortProperty="authentication" filterProperty="authentication" visible="{view>/withRoles}">
+                <Label text="{i18n>authentication}"/>
+                <table:template><Text text="{path: 'view>authentication', formatter: '.formatter.value'}" wrapping="false"/></table:template>
+              </table:Column>
+              <table:Column width="11rem" sortProperty="userRole" filterProperty="userRole" visible="{view>/withRoles}">
+                <Label text="{i18n>colRole}"/>
+                <table:template>
+                  <ObjectStatus
+                    text="{parts: ['view>userRole', 'view>roleSource'], formatter: '.formatter.role'}"
+                    state="{path: 'view>roleSource', formatter: '.formatter.roleState'}"
+                    tooltip="{path: 'view>roleSource', formatter: '.formatter.contentSource'}"/>
+                </table:template>
+              </table:Column>
+              <table:Column width="5rem" sortProperty="version" filterProperty="version">
+                <Label text="{i18n>colVersion}"/>
+                <table:template><Text text="{path: 'view>version', formatter: '.formatter.value'}" wrapping="false"/></table:template>
+              </table:Column>
+            </table:columns>
+          </table:Table>
         </VBox>
-        <Table
-          id="endpointTable"
-          class="sapUiResponsiveMargin"
-          width="auto"
-          items="{view>/endpoints}"
-          growing="true"
-          growingThreshold="100"
-          sticky="ColumnHeaders,HeaderToolbar"
-          noDataText="{= ${view>/loaded} ? ${i18n>noEndpoints} : ${i18n>noData}}">
-          <headerToolbar>
-            <OverflowToolbar>
-              <Title text="{view>/countText}" level="H2"/>
-              <ToolbarSpacer/>
-              <SegmentedButton selectedKey="{view>/tenant}" selectionChange=".onFilter">
-                <items>
-                  <SegmentedButtonItem key="ALL" text="{i18n>all}"/>
-                  <SegmentedButtonItem key="DEV" text="DEV"/>
-                  <SegmentedButtonItem key="PROD" text="PROD"/>
-                </items>
-              </SegmentedButton>
-              <SearchField width="20rem" value="{view>/query}" placeholder="{i18n>search}" liveChange=".onFilter" search=".onFilter"/>
-              <Button icon="sap-icon://refresh" type="Transparent" tooltip="{i18n>reload}" press=".onReload"/>
-            </OverflowToolbar>
-          </headerToolbar>
-          <columns>
-            <Column width="6rem"><Text text="{i18n>colTenant}"/></Column>
-            <Column width="30%"><Text text="{i18n>colIflow}"/></Column>
-            <Column width="8rem"><Text text="{i18n>colAdapter}"/></Column>
-            <Column><Text text="{i18n>colEndpoint}"/></Column>
-          </columns>
-          <items>
-            <ColumnListItem type="Navigation" press=".onSelect">
-              <cells>
-                <ObjectStatus text="{view>tenant}" state="{path: 'view>tenant', formatter: '.formatter.tenantState'}" inverted="true"/>
-                <ObjectIdentifier title="{view>iflowName}" text="{view>iflowId}"/>
-                <Text text="{path: 'view>adapter', formatter: '.formatter.value'}"/>
-                <Text text="{view>url}" wrapping="true"/>
-              </cells>
-            </ColumnListItem>
-          </items>
-        </Table>
-      </content>
-    </Page>
+      </f:content>
+    </f:DynamicPage>
 
     <Page
       id="detailPage"
@@ -92,7 +186,7 @@
             class="sapUiTinyMarginBottom"/>
         </VBox>
 
-        <f:SimpleForm
+        <form:SimpleForm
           title="{i18n>secEndpoint}"
           editable="false"
           layout="ColumnLayout"
@@ -106,14 +200,14 @@
           <Label text="{i18n>iflowId}"/>
           <Text text="{view>/selected/iflowId}"/>
           <Label text="{i18n>adapter}"/>
-          <Text text="{path: 'view>/adapter', formatter: '.formatter.value'}"/>
+          <Text text="{path: 'view>/adapterText', formatter: '.formatter.value'}"/>
           <Label text="{i18n>protocol}"/>
           <Text text="{path: 'view>/selected/protocol', formatter: '.formatter.value'}"/>
           <Label text="{i18n>url}"/>
           <Text text="{view>/selected/url}" wrapping="true"/>
-        </f:SimpleForm>
+        </form:SimpleForm>
 
-        <f:SimpleForm
+        <form:SimpleForm
           title="{i18n>secDeployment}"
           editable="false"
           layout="ColumnLayout"
@@ -130,7 +224,7 @@
           <Text text="{path: 'view>/details/deployment/deployedBy', formatter: '.formatter.value'}"/>
           <Label text="{i18n>deployedOn}"/>
           <Text text="{path: 'view>/details/deployment/deployedOn', formatter: '.formatter.dateTime'}"/>
-        </f:SimpleForm>
+        </form:SimpleForm>
 
         <MessageStrip
           text="{i18n>notMatched}"
@@ -141,7 +235,7 @@
 
         <VBox items="{view>/details/channels}" renderType="Bare">
           <VBox renderType="Bare">
-            <f:SimpleForm
+            <form:SimpleForm
               title="{parts: ['i18n>secChannel', 'view>name'], formatter: '.formatMessage'}"
               editable="false"
               layout="ColumnLayout"
@@ -161,7 +255,7 @@
               <Text text="{path: 'view>address', formatter: '.formatter.value'}"/>
               <Label text="{i18n>contentSource}"/>
               <Text text="{path: 'view>/details/contentSource', formatter: '.formatter.contentSource'}"/>
-            </f:SimpleForm>
+            </form:SimpleForm>
             <Panel
               headerText="{i18n>secProperties}"
               expandable="true"
