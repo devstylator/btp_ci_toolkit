@@ -30,7 +30,7 @@ const keyOf = (i: Item) => `${i.type}:${i.id}`
 export function compareItems(packageId: string, dev: Item[], prod: Item[]): Row[] {
   const devMap = new Map(dev.map(i => [keyOf(i), i]))
   const prodMap = new Map(prod.map(i => [keyOf(i), i]))
-  const keys = [...new Set([...devMap.keys(), ...prodMap.keys()])].sort((a, b) => +!a.startsWith('PACKAGE:') - +!b.startsWith('PACKAGE:') || a.localeCompare(b))
+  const keys = [...new Set([...devMap.keys(), ...prodMap.keys()])].sort((a, b) => a.localeCompare(b))
   return keys.map(k => {
     const d = devMap.get(k)
     const p = prodMap.get(k)
@@ -38,7 +38,7 @@ export function compareItems(packageId: string, dev: Item[], prod: Item[]): Row[
     const status: Status = !d ? 'MISSING_IN_DEV' : !p ? 'MISSING_IN_PROD' : d.version === p.version ? 'MATCH' : 'MISMATCH'
     return {
       packageId,
-      artifactId: ref.type === 'PACKAGE' ? '' : ref.id,
+      artifactId: ref.id,
       artifactName: ref.name,
       artifactType: ref.type,
       devVersion: d?.version ?? null,

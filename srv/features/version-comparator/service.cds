@@ -1,6 +1,6 @@
 /**
- * Version Comparator: compares package/artifact versions between the DEV and PROD CPI tenants.
- * Nothing is persisted - the result (including a step log) is returned by the `compare` action.
+ * Version Comparator: lists the DEV packages and compares the artifact versions of one package between the DEV and
+ * PROD CPI tenants. Nothing is persisted - the result (including a step log) is returned by the `compare` action.
  */
 @path: '/odata/v4/version-comparator'
 @requires: ['Viewer', 'Admin']
@@ -15,26 +15,27 @@ service VersionComparatorService {
 
   type LogLevel : String enum { INFO; WARN; ERROR; }
 
+  /** Package of the DEV tenant (no version: equal package versions say nothing about the artifacts). */
   type PackageInfo {
-    id    : String;
-    name  : String;
-    inDev : Boolean;
-    inProd: Boolean;
+    id          : String;
+    name        : String;
+    description : String;
   }
 
-  type ArtifactInfo {
-    id    : String;
-    name  : String;
-    type  : String;
-    inDev : Boolean;
-    inProd: Boolean;
+  /** Package header of a comparison: where the package exists. */
+  type PackageDetails {
+    id          : String;
+    name        : String;
+    description : String;
+    inDev       : Boolean;
+    inProd      : Boolean;
   }
 
   type ComparisonRow {
     packageId    : String;
-    artifactId   : String;      // empty for the package row itself
+    artifactId   : String;
     artifactName : String;
-    artifactType : String;      // PACKAGE | IntegrationFlow | ValueMapping | ...
+    artifactType : String;      // IntegrationFlow | ValueMapping | MessageMapping | ScriptCollection
     devVersion   : String;
     prodVersion  : String;
     status       : ComparisonStatus;
@@ -56,17 +57,15 @@ service VersionComparatorService {
 
   type ComparisonResult {
     success : Boolean;
+    package : PackageDetails;
     summary : ComparisonSummary;
     rows    : many ComparisonRow;
     log     : many LogEntry;
   }
 
-  /** Lists packages found in DEV and/or PROD (value help). */
+  /** Lists the packages of the DEV tenant. */
   function listPackages() returns many PackageInfo;
 
-  /** Lists artifacts of a package found in DEV and/or PROD (value help). */
-  function listArtifacts(packageId : String) returns many ArtifactInfo;
-
-  /** Compares a package (all artifacts) or a single artifact (artifactId set). */
-  action compare(packageId : String, artifactId : String) returns ComparisonResult;
+  /** Compares all artifacts of a package between DEV and PROD (version numbers). */
+  action compare(packageId : String) returns ComparisonResult;
 }

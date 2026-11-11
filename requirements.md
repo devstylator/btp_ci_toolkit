@@ -83,13 +83,13 @@ GitHub: https://github.com/devstylator/btp_ci_toolkit (branch `main`). Docs: [RE
 - FR-CFG-13 ✅ Configuration list report has two tabs: *CPI connections* and *Script executor (Groovy IDE)*; the executor object page offers Edit/Save (draft), `Test executor`, `Set client secret` (direct mode only). See D13.
 
 ### 4.2 Version Comparator (✅ backend, ✅ UI)
-- FR-VC-1 ✅ User selects a package (value help: `listPackages`) and optionally one artifact (`listArtifacts`).
-- FR-VC-2 ✅ `compare(packageId, artifactId?)` reads DEV and PROD and compares **version numbers only**.
-- FR-VC-3 ✅ Per item status: `MATCH`, `MISMATCH`, `MISSING_IN_DEV`, `MISSING_IN_PROD`. The package itself is a row (type `PACKAGE`) when no artifact filter is given.
+- FR-VC-1 ✅ Start page lists the **DEV packages** (`listPackages()`: ID, name, description = short text, long description as fallback; sorted by name) in a grid table, loaded on open. Package versions are **not shown**: equal package versions say nothing about the artifact versions. One filter in the page header: package name or ID (contains, case-insensitive, over the loaded list); count `n of m`, reload button, column sorting.
+- FR-VC-2 ✅ Clicking a package opens its detail page and runs `compare(packageId)`: reads all artifacts of the package in DEV and PROD (both tenants and all artifact types in parallel) and compares **version numbers only**.
+- FR-VC-3 ✅ Per artifact status: `MATCH`, `MISMATCH`, `MISSING_IN_DEV`, `MISSING_IN_PROD`. The package itself is not a row; the result carries a `package` header (ID, name, description, present in DEV / PROD). A package missing in PROD shows all artifacts as missing in PROD (WARN in the log).
 - FR-VC-4 ✅ Artifact types: IntegrationFlow, ValueMapping, MessageMapping, ScriptCollection (list in `comparator.ts`; types a tenant does not expose are logged as WARN and skipped).
-- FR-VC-5 ✅ Result contains `summary`, `rows`, and `log` (timestamped INFO/WARN/ERROR step log); nothing is stored.
-- FR-VC-6 ✅ Not configured / disabled connection -> HTTP 412; CPI failures during compare -> `success=false` with ERROR log; failures in value helps -> HTTP 502.
-- FR-VC-7 ✅ UI: package/artifact comboboxes (value help from `listPackages`/`listArtifacts`, reload button), Compare, result tab (summary tags, status-coloured table, “Differences only” switch), log tab, error strip. Packages must be picked from the list (free text is not compared). Both dropdowns support type-ahead search: case-insensitive “contains” match on ID or name (`ComboBox.setFilterFunction`).
+- FR-VC-5 ✅ Result contains `package`, `summary`, `rows`, and `log` (timestamped INFO/WARN/ERROR step log); nothing is stored.
+- FR-VC-6 ✅ Not configured / disabled connection -> HTTP 412; CPI failures during compare -> `success=false` with ERROR log; failure in `listPackages` -> HTTP 502; empty `packageId` -> 400.
+- FR-VC-7 ✅ Detail page (list-detail navigation inside the component, URL hash untouched): header with back button, package name, ID, description, DEV/PROD presence and summary tags; *Compare again* re-runs the comparison. Result tab keeps the status-coloured table (type, artifact ID/name, DEV/PROD version, status) with a **display-only** filter (artifact name, ID or type, contains) and the “Differences only” switch; neither triggers a new comparison. Log tab and error strip as before.
 
 ### 4.3 Feature registry / navigation (✅ backend, ✅ UI)
 - FR-NAV-1 ✅ `FeatureService.Features` returns entries visible to the caller's roles, ordered by `position`; `group=SYSTEM` entries (Configuration) belong at the bottom of the side nav.
@@ -151,6 +151,7 @@ GitHub: https://github.com/devstylator/btp_ci_toolkit (branch `main`). Docs: [RE
 8. 🚧 Groovy IDE: deploy the runner iFlow on the DEV/trial tenant, configure the executor, assign `CiToolkitDeveloper`, verify against the real runner (verified locally against a fake runner with the same contract and real DEV downloads).
 
 ## 8. Changelog
+- 2026-11-11: Version Comparator reworked as list-detail (FR-VC-1..7): start page lists DEV packages (name, ID, description, no package version) with a name filter; clicking a package compares all its artifacts with PROD on a detail page (package header, display-only result filter). Package row, artifact dropdown, `listArtifacts` and the `artifactId` parameter removed.
 - 2026-11-11: Endpoints: Excel export of the shown rows and columns (FR-EP-4).
 - 2026-11-11: Endpoints: *Service path* column (URL without the tenant host) shown instead of the full URL by default; *Columns* button to show/hide table columns, remembered in the browser (FR-EP-1, FR-EP-4).
 - 2026-11-10: Endpoints reworked like Search (D17, FR-EP-1, FR-EP-4): one tenant at a time, server-side filters (package, iFlow, URL, adapter, access role) applied on Go instead of loading both tenants on open; access role and authentication read for every listed iFlow and shown as columns (UI option *Read access roles*, default off; on automatically when filtering by access role); grid table with per-column sort/filter. `listPackages(tenant)` added. Shared `srv/lib/pattern.ts` (moved from Search) and `srv/lib/async.ts`.
