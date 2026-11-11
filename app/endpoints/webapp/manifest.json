@@ -27,7 +27,7 @@
     },
     "dependencies": {
       "minUI5Version": "1.136.0",
-      "libs": { "sap.m": {}, "sap.ui.core": {}, "sap.ui.layout": {}, "sap.f": {}, "sap.ui.table": {} }
+      "libs": { "sap.m": {}, "sap.ui.core": {}, "sap.ui.layout": {}, "sap.f": {}, "sap.ui.table": {}, "sap.ui.export": { "lazy": true } }
     },
     "models": {
       "i18n": {

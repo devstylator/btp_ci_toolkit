@@ -220,6 +220,37 @@ sap.ui.define([
       this._columnsPopover.openBy(event.getSource());
     },
 
+    /** Excel export of the rows as shown: table filters/sorting applied, visible columns in table order. */
+    onExport() {
+      const table = this.byId("endpointTable");
+      const binding = table.getBinding("rows");
+      const columns = table.getColumns().filter((c) => c.getVisible()).map((c) => ({
+        label: c.getLabel().getText(),
+        property: c.getSortProperty(),
+        type: "String",
+        // Excel width in characters; flexible columns (no width) are the URL/path ones
+        width: Math.max(10, Math.round((parseFloat(c.getWidth()) || 25) * 1.6))
+      }));
+      const notReadable = this._text("roleUnknown");
+      const rows = binding.getContexts(0, binding.getLength()).map((ctx) => {
+        const row = ctx.getObject();
+        return { ...row, userRole: row.roleSource === "NONE" ? notReadable : row.userRole };
+      });
+      const m = this._model;
+      const fileName = ["endpoints", m.getProperty("/tenant"), new Date().toISOString().slice(0, 10)].join("_") + ".xlsx";
+      sap.ui.require(["sap/ui/export/Spreadsheet"], (Spreadsheet) => {
+        const sheet = new Spreadsheet({
+          workbook: { columns, context: { sheetName: this._text("appTitle"), title: m.getProperty("/criteriaText") } },
+          dataSource: rows,
+          fileName,
+          showProgress: false
+        });
+        sheet.build()
+          .catch((e) => MessageToast.show(this._text("exportFailed", e && e.message ? e.message : e)))
+          .finally(() => sheet.destroy());
+      }, (e) => MessageToast.show(this._text("exportFailed", e.message)));
+    },
+
     onResetColumns() {
       this._model.setProperty("/cols", { ...DEFAULT_COLUMNS });
       this._saveColumns();

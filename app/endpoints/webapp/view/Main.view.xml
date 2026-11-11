@@ -112,6 +112,7 @@
                 <ToolbarSpacer/>
                 <SearchField width="16rem" value="{view>/query}" placeholder="{i18n>filterResults}" liveChange=".onFilter" search=".onFilter" enabled="{view>/loaded}"/>
                 <Button icon="sap-icon://clear-filter" type="Transparent" tooltip="{i18n>clearFilters}" press=".onClearFilters" enabled="{view>/loaded}"/>
+                <Button icon="sap-icon://excel-attachment" text="{i18n>export}" type="Transparent" tooltip="{i18n>exportTooltip}" press=".onExport" enabled="{= ${view>/loaded} &amp;&amp; ${view>/endpoints}.length > 0}"/>
                 <Button id="columnsButton" icon="sap-icon://table-column" text="{i18n>columns}" type="Transparent" tooltip="{i18n>columnsTooltip}" press=".onColumns"/>
               </OverflowToolbar>
             </table:extension>
