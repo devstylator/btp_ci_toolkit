@@ -112,6 +112,7 @@
                 <ToolbarSpacer/>
                 <SearchField width="16rem" value="{view>/query}" placeholder="{i18n>filterResults}" liveChange=".onFilter" search=".onFilter" enabled="{view>/loaded}"/>
                 <Button icon="sap-icon://clear-filter" type="Transparent" tooltip="{i18n>clearFilters}" press=".onClearFilters" enabled="{view>/loaded}"/>
+                <Button id="columnsButton" icon="sap-icon://table-column" text="{i18n>columns}" type="Transparent" tooltip="{i18n>columnsTooltip}" press=".onColumns"/>
               </OverflowToolbar>
             </table:extension>
             <table:rowActionTemplate>
@@ -120,27 +121,31 @@
               </table:RowAction>
             </table:rowActionTemplate>
             <table:columns>
-              <table:Column width="14rem" sortProperty="iflowName" filterProperty="iflowName">
+              <table:Column id="colIflowName" width="14rem" sortProperty="iflowName" filterProperty="iflowName" visible="{view>/cols/iflowName}">
                 <Label text="{i18n>iflowName}"/>
                 <table:template><Text text="{view>iflowName}" wrapping="false"/></table:template>
               </table:Column>
-              <table:Column width="10rem" sortProperty="iflowId" filterProperty="iflowId">
+              <table:Column id="colIflowId" width="10rem" sortProperty="iflowId" filterProperty="iflowId" visible="{view>/cols/iflowId}">
                 <Label text="{i18n>iflowId}"/>
                 <table:template><Text text="{view>iflowId}" wrapping="false"/></table:template>
               </table:Column>
-              <table:Column width="6rem" sortProperty="adapter" filterProperty="adapter">
+              <table:Column id="colAdapter" width="6rem" sortProperty="adapter" filterProperty="adapter" visible="{view>/cols/adapter}">
                 <Label text="{i18n>colAdapter}"/>
                 <table:template><Text text="{path: 'view>adapter', formatter: '.formatter.value'}" wrapping="false"/></table:template>
               </table:Column>
-              <table:Column minWidth="160" sortProperty="url" filterProperty="url">
+              <table:Column id="colPath" minWidth="160" sortProperty="path" filterProperty="path" visible="{view>/cols/path}">
+                <Label text="{i18n>colPath}"/>
+                <table:template><Text text="{view>path}" wrapping="false" tooltip="{view>url}"/></table:template>
+              </table:Column>
+              <table:Column id="colUrl" minWidth="160" sortProperty="url" filterProperty="url" visible="{view>/cols/url}">
                 <Label text="{i18n>colEndpoint}"/>
                 <table:template><Text text="{view>url}" wrapping="false" tooltip="{view>url}"/></table:template>
               </table:Column>
-              <table:Column width="9rem" sortProperty="authentication" filterProperty="authentication" visible="{view>/withRoles}">
+              <table:Column id="colAuthentication" width="9rem" sortProperty="authentication" filterProperty="authentication" visible="{= ${view>/withRoles} &amp;&amp; ${view>/cols/authentication}}">
                 <Label text="{i18n>authentication}"/>
                 <table:template><Text text="{path: 'view>authentication', formatter: '.formatter.value'}" wrapping="false"/></table:template>
               </table:Column>
-              <table:Column width="11rem" sortProperty="userRole" filterProperty="userRole" visible="{view>/withRoles}">
+              <table:Column id="colUserRole" width="11rem" sortProperty="userRole" filterProperty="userRole" visible="{= ${view>/withRoles} &amp;&amp; ${view>/cols/userRole}}">
                 <Label text="{i18n>colRole}"/>
                 <table:template>
                   <ObjectStatus
@@ -149,7 +154,7 @@
                     tooltip="{path: 'view>roleSource', formatter: '.formatter.contentSource'}"/>
                 </table:template>
               </table:Column>
-              <table:Column width="5rem" sortProperty="version" filterProperty="version">
+              <table:Column id="colVersion" width="5rem" sortProperty="version" filterProperty="version" visible="{view>/cols/version}">
                 <Label text="{i18n>colVersion}"/>
                 <table:template><Text text="{path: 'view>version', formatter: '.formatter.value'}" wrapping="false"/></table:template>
               </table:Column>
@@ -203,6 +208,8 @@
           <Text text="{path: 'view>/adapterText', formatter: '.formatter.value'}"/>
           <Label text="{i18n>protocol}"/>
           <Text text="{path: 'view>/selected/protocol', formatter: '.formatter.value'}"/>
+          <Label text="{i18n>colPath}"/>
+          <Text text="{view>/selected/path}" wrapping="true"/>
           <Label text="{i18n>url}"/>
           <Text text="{view>/selected/url}" wrapping="true"/>
         </form:SimpleForm>

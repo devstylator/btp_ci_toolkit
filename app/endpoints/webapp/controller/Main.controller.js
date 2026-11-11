@@ -4,9 +4,34 @@ sap.ui.define([
   "sap/ui/model/Filter",
   "sap/ui/model/FilterOperator",
   "sap/m/MessageToast",
+  "sap/m/Popover",
+  "sap/m/VBox",
+  "sap/m/CheckBox",
+  "sap/m/Text",
+  "sap/m/Button",
   "../model/formatter"
-], function (Controller, JSONModel, Filter, FilterOperator, MessageToast, formatter) {
+], function (Controller, JSONModel, Filter, FilterOperator, MessageToast, Popover, VBox, CheckBox, Text, Button, formatter) {
   "use strict";
+
+  /** Column visibility (key = column field); remembered per browser. */
+  const DEFAULT_COLUMNS = {
+    iflowName: true, iflowId: true, adapter: true, path: true, url: false, authentication: true, userRole: true, version: true
+  };
+  const COLUMN_LABELS = {
+    iflowName: "iflowName", iflowId: "iflowId", adapter: "colAdapter", path: "colPath", url: "colEndpoint",
+    authentication: "authentication", userRole: "colRole", version: "colVersion"
+  };
+  const COLUMNS_KEY = "btp-ci-toolkit.endpoints.columns";
+
+  function loadColumns() {
+    try {
+      const stored = JSON.parse(localStorage.getItem(COLUMNS_KEY) || "{}");
+      return Object.fromEntries(Object.keys(DEFAULT_COLUMNS).map((k) =>
+        [k, typeof stored[k] === "boolean" ? stored[k] : DEFAULT_COLUMNS[k]]));
+    } catch (e) {
+      return { ...DEFAULT_COLUMNS };
+    }
+  }
 
   const literal = (value) => `'${encodeURIComponent(String(value).replace(/'/g, "''"))}'`;
 
@@ -31,6 +56,7 @@ sap.ui.define([
         criteriaText: "",
         // result
         withRoles: false,
+        cols: loadColumns(),
         endpoints: [],
         messages: [],
         query: "",
@@ -149,7 +175,7 @@ sap.ui.define([
       }
       const query = (this._model.getProperty("/query") || "").trim();
       binding.filter(query ? new Filter({
-        filters: ["iflowName", "iflowId", "adapter", "url", "authentication", "userRole"].map((path) =>
+        filters: ["iflowName", "iflowId", "adapter", "path", "url", "authentication", "userRole"].map((path) =>
           new Filter({ path, operator: FilterOperator.Contains, value1: query, caseSensitive: false })),
         and: false
       }) : [], "Application");
@@ -167,6 +193,44 @@ sap.ui.define([
       table.getBinding("rows")?.sort([]);
       this._model.setProperty("/query", "");
       this.onFilter();
+    },
+
+    onColumns(event) {
+      if (!this._columnsPopover) {
+        const view = this.getView();
+        this._columnsPopover = new Popover({
+          title: this._text("columnsTitle"),
+          placement: "Bottom",
+          contentWidth: "16rem",
+          content: [
+            new VBox({
+              renderType: "Bare",
+              items: Object.keys(DEFAULT_COLUMNS).map((key) => new CheckBox({
+                text: this._text(COLUMN_LABELS[key]),
+                selected: `{view>/cols/${key}}`,
+                select: () => this._saveColumns()
+              }))
+            }).addStyleClass("sapUiSmallMarginBeginEnd sapUiTinyMarginTopBottom"),
+            new Text({ text: this._text("columnsRolesHint") }).addStyleClass("sapUiSmallMarginBeginEnd sapUiSmallMarginBottom sapThemeLightText")
+          ],
+          endButton: new Button({ text: this._text("resetColumns"), type: "Transparent", press: () => this.onResetColumns() })
+        });
+        view.addDependent(this._columnsPopover);
+      }
+      this._columnsPopover.openBy(event.getSource());
+    },
+
+    onResetColumns() {
+      this._model.setProperty("/cols", { ...DEFAULT_COLUMNS });
+      this._saveColumns();
+    },
+
+    _saveColumns() {
+      try {
+        localStorage.setItem(COLUMNS_KEY, JSON.stringify(this._model.getProperty("/cols")));
+      } catch (e) {
+        // storage blocked (private mode etc.): the choice only lasts for this session
+      }
     },
 
     onRowsUpdated() {

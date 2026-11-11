@@ -3,7 +3,7 @@ import { CpiClient, CpiError } from '../../lib/cpi-client.js'
 import { loadConnection } from '../../lib/connections.js'
 import { CPI_CONCURRENCY, eachLimit } from '../../lib/async.js'
 import { anyMatcher } from '../../lib/pattern.js'
-import { adapterFromUrl, addressMatches, artifactIdFromEndpointId, findIflw, odataDate, parseSenderChannels, toSenderChannels } from './iflow.js'
+import { adapterFromUrl, addressMatches, servicePath, artifactIdFromEndpointId, findIflw, odataDate, parseSenderChannels, toSenderChannels } from './iflow.js'
 
 type Tenant = 'DEV' | 'PROD'
 type Level = 'INFO' | 'WARN' | 'ERROR'
@@ -29,6 +29,7 @@ interface EndpointRow {
   adapter: string
   protocol: string
   url: string
+  path: string
   version: string
   authentication: string
   userRole: string
@@ -52,6 +53,7 @@ async function tenantEndpoints(client: CpiClient, tenant: Tenant, messages: Mess
       adapter: adapterFromUrl(entry.Url ?? '', ep.Protocol),
       protocol: ep.Protocol ?? '',
       url: entry.Url ?? '',
+      path: servicePath(entry.Url ?? ''),
       version: artifact?.Version ?? ep.Version ?? '',
       authentication: '',
       userRole: '',

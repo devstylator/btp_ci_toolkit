@@ -23,6 +23,7 @@ service EndpointsService {
     adapter        : String;   // derived from the URL path / API protocol (exact type: details)
     protocol       : String;   // `Protocol` of the ServiceEndpoints API
     url            : String;
+    path           : String;   // service path without the tenant host, e.g. /http/orders
     version        : String;
     /** Sender channel authentication / user role (comma separated when several); empty unless `accessRoles`. */
     authentication : String;

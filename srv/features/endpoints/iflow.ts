@@ -37,6 +37,16 @@ export function adapterFromUrl(url: string, protocol?: string): string {
   return PROTOCOL_ADAPTERS[p.toUpperCase()] ?? (p || (/^\/cxf\//i.test(path) ? 'SOAP' : ''))
 }
 
+/** Service path of an endpoint URL without the tenant host, e.g. `/http/test/script` (the input when it is no URL). */
+export function servicePath(url: string): string {
+  try {
+    const u = new URL(url)
+    return u.pathname + u.search
+  } catch {
+    return url ?? ''
+  }
+}
+
 /**
  * The `Id` of a ServiceEndpoints entry identifies the endpoint, e.g. `Orders$endpointAddress=http/orders`;
  * the artifact ID is the part before `$` (artifact IDs cannot contain `$`).

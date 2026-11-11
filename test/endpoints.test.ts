@@ -4,7 +4,7 @@ import { createServer, type Server } from 'node:http'
 import cds from '@sap/cds'
 import { encrypt } from '../srv/lib/crypto.js'
 import { zip } from './zip.js'
-import { adapterFromUrl, addressMatches, artifactIdFromEndpointId, parseSenderChannels, toSenderChannels } from '../srv/features/endpoints/iflow.js'
+import { adapterFromUrl, addressMatches, artifactIdFromEndpointId, servicePath, parseSenderChannels, toSenderChannels } from '../srv/features/endpoints/iflow.js'
 
 const { UPDATE } = cds.ql
 let app: Server
@@ -54,6 +54,12 @@ test('sender channels are parsed, parameters resolved, receivers and credentials
   ])
   assert.equal(channels[1].certificates, 'CN=client&co')
   assert.ok(!JSON.stringify(channels).includes('nope'))
+})
+
+test('service path is the URL without the tenant host', () => {
+  assert.equal(servicePath('https://t.example.com/http/test/script'), '/http/test/script')
+  assert.equal(servicePath('https://t.example.com/gw/odata/SAP/X;v=1?a=b'), '/gw/odata/SAP/X;v=1?a=b')
+  assert.equal(servicePath('not a url'), 'not a url')
 })
 
 test('artifact ID is taken from the ServiceEndpoints ID', () => {
@@ -148,6 +154,7 @@ test('Endpoints service', async t => {
       ['DEV', 'Legacy', 'Legacy SOAP', 'SOAP', 'RoleBased, ClientCertificate', '{{Sender Role}}', 'DESIGNTIME'],
       ['DEV', 'Orders', 'Orders API', 'HTTPS', 'RoleBased', 'Orders.Send', 'RUNTIME']
     ])
+    assert.deepEqual(body.endpoints.map((e: any) => e.path), ['/cxf/legacy', '/http/orders/v1'])
     assert.deepEqual(body.messages, [])
   })
 
