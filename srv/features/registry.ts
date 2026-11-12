@@ -43,7 +43,7 @@ export const features: FeatureDescriptor[] = [
     service: '/odata/v4/groovy-ide',
     position: 20,
     group: 'FEATURE',
-    roles: ['Viewer', 'Developer']
+    roles: ['Viewer', 'Developer', 'Admin']
   },
   {
     ID: 'endpoints',

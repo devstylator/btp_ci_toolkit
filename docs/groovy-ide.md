@@ -15,7 +15,7 @@ runtime through a small **script-runner iFlow**. The design follows the blog
 
 Roles: `CiToolkitViewer` can open the IDE read only (browse, view, preview downloads). `CiToolkitDeveloper` can
 create/edit/delete scripts, versions and saved inputs, download into the IDE and run scripts. `CiToolkitAdmin` configures the
-executor but does not include Developer.
+executor and has the same rights as Developer.
 
 ## 1. Deploy the script-runner iFlow (once)
 

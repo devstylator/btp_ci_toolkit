@@ -30,6 +30,7 @@ Open http://localhost:4004/ and log in with a mocked local user:
 |------|----------|-------|-----|
 | `alice` | `alice` | Admin, Viewer, Developer | everything, including Configuration and running Groovy scripts |
 | `bob` | `bob` | Viewer | use tools (Version Comparator, Groovy IDE read only), not Configuration |
+| `gil` | `gil` | Admin | everything (Admin alone gives full access to all tools and Configuration) |
 
 Then, as `alice`: **Configuration** -> pick DEV -> *Edit* -> fill tenant URL, token URL, client ID -> *Save* ->
 *Set client secret* -> *Test connection*. Repeat for PROD. Local runs talk to the **real** tenants.
@@ -92,7 +93,7 @@ Details and templates: **[docs/adding-a-feature.md](docs/adding-a-feature.md)**.
 | `/odata/v4/version-comparator` | Viewer, Admin | `listPackages()` (DEV), `compare(packageId)` |
 | `/odata/v4/endpoints` | Viewer, Admin | `listPackages(tenant)`, `listEndpoints(tenant, packageId, iflow, url, adapter, role, accessRoles)`, `endpointDetails(tenant, iflowId, url)` |
 | `/odata/v4/search` | Viewer, Admin | `listPackages(tenant)`, `search(tenant, packageId, name, value, caseSensitive, iflows, scripts)` |
-| `/odata/v4/groovy-ide` | Viewer (read), Developer | `Scripts`, `ScriptVersions`, `ScriptInputs`, `saveVersion`, `run`, `executorStatus()`, DEV download value helps |
+| `/odata/v4/groovy-ide` | Viewer (read), Developer, Admin | `Scripts`, `ScriptVersions`, `ScriptInputs`, `saveVersion`, `run`, `executorStatus()`, DEV download value helps |
 
 Metadata: `http://localhost:4004/odata/v4/<service>/$metadata`.
 

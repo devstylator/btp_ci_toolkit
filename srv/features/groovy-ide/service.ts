@@ -79,7 +79,7 @@ export default class GroovyIdeService extends cds.ApplicationService {
 
     this.on('executorStatus', async (req: any) => {
       const row = await SELECT.one.from(DB_EXECUTOR).columns('enabled').where({ code: EXECUTOR_CODE })
-      return { enabled: !!row?.enabled, canRun: req.user.is('Developer') }
+      return { enabled: !!row?.enabled, canRun: req.user.is('Developer') || req.user.is('Admin') }
     })
 
     this.on('listPackages', guard(async (req: any) => {

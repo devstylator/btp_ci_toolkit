@@ -53,7 +53,7 @@ approuter is printed at the end (`btp-ci-toolkit-<org>-<space>`-style route or `
 
 BTP cockpit -> Security -> Role Collections: the deployment created **`CiToolkitViewer`**, **`CiToolkitAdmin`** and
 **`CiToolkitDeveloper`**. Assign them to your user (and your identity provider group, if used). Admin and Developer
-include Viewer; Developer (edit and run Groovy IDE scripts) is not part of Admin.
+include Viewer; Admin also includes Developer (full access to every tool and option).
 
 The Groovy IDE additionally needs the script-runner iFlow on an isolated DEV/trial tenant and the executor settings
 (Configuration > Script executor): see [groovy-ide.md](groovy-ide.md).
@@ -152,7 +152,7 @@ Keep `ci-toolkit-secrets` and its key while any stored direct credentials are re
 - UI and OData are same-origin, so the absolute paths used by the launcher (`/odata/...`, `/configuration/webapp`)
   work unchanged. `scripts/copy-ui.mjs` copies `app/` (without `.cds` files) into `gen/srv/app`.
 - TypeScript is compiled during `cds build --production`; the production server runs plain JS (no `tsx`).
-- Scope names stay `Viewer`/`Admin` (they are what `@requires` uses); the role templates and role collections carry
+- Scope names stay `Viewer`/`Admin`/`Developer` (they are what `@requires` uses); the role templates and role collections carry
   the `CiToolkit` names. If you add a feature that needs new roles, add scope + role template + role collection
   in `xs-security.json`.
 - XSUAA app name is `btp-ci-toolkit-${org}-${space}`; role collection names must be unique per subaccount, so a

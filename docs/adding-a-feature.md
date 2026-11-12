@@ -46,7 +46,8 @@ service <Name>Service {
 Rules:
 - One service per feature, path `/odata/v4/<name>`.
 - Always set `@requires` (roles are `Viewer` = use tools, `Admin` = configuration, `Developer` = Groovy IDE edit/run;
-  Admin and Developer both include Viewer).
+  Admin and Developer both include Viewer; Admin must have full access to every tool, so always list `Admin` in
+  `@requires`, in every `@restrict` grant and in the registry `roles`).
   Use `@restrict` for finer control. Do not invent new roles without adding them to `xs-security.json`
   (scope + role template + role collection, existing ones are `CiToolkitViewer`/`CiToolkitAdmin`/`CiToolkitDeveloper`)
   and `requirements.md`.
@@ -178,7 +179,7 @@ Common requirements for both:
 ### Step 6 - verify
 
 ```bash
-npm run watch                          # http://localhost:4004 , mocked users alice/alice (Admin, Developer), bob/bob (Viewer)
+npm run watch                          # http://localhost:4004 , mocked users alice/alice (Admin, Viewer, Developer), bob/bob (Viewer), gil/gil (Admin)
 curl -u bob:bob 'http://localhost:4004/odata/v4/features/Features'          # your entry is listed for allowed roles
 curl -u bob:bob 'http://localhost:4004/odata/v4/<name>/$metadata'          # service compiles
 ```

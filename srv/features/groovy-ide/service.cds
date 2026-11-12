@@ -3,15 +3,15 @@ using { btp.toolkit as db } from '../../../db/groovy-ide';
 /**
  * Groovy IDE: edit and version CPI Groovy scripts, keep named inputs per script and run them through the script-runner iFlow.
  * Scripts can be downloaded (read-only) from DEV iFlows / Script Collections; nothing is uploaded to CPI.
- * Viewer: read only. Developer: create/edit, download into the IDE, run.
+ * Viewer: read only. Developer and Admin: create/edit, download into the IDE, run.
  */
 @path: '/odata/v4/groovy-ide'
-@requires: ['Viewer', 'Developer']
+@requires: ['Viewer', 'Developer', 'Admin']
 service GroovyIdeService {
 
   @restrict: [
-    { grant: 'READ', to: ['Viewer', 'Developer'] },
-    { grant: ['CREATE', 'UPDATE', 'DELETE', 'saveVersion'], to: 'Developer' }
+    { grant: 'READ', to: ['Viewer', 'Developer', 'Admin'] },
+    { grant: ['CREATE', 'UPDATE', 'DELETE', 'saveVersion'], to: ['Developer', 'Admin'] }
   ]
   entity Scripts as projection on db.Scripts actions {
     /** Stores the current content (optionally the given one) as a new immutable version. */
@@ -19,15 +19,15 @@ service GroovyIdeService {
   };
 
   @restrict: [
-    { grant: 'READ', to: ['Viewer', 'Developer'] },
-    { grant: 'DELETE', to: 'Developer' }
+    { grant: 'READ', to: ['Viewer', 'Developer', 'Admin'] },
+    { grant: 'DELETE', to: ['Developer', 'Admin'] }
   ]
   @Capabilities: { InsertRestrictions.Insertable: false, UpdateRestrictions.Updatable: false }
   entity ScriptVersions as projection on db.ScriptVersions;
 
   @restrict: [
-    { grant: 'READ', to: ['Viewer', 'Developer'] },
-    { grant: ['CREATE', 'UPDATE', 'DELETE'], to: 'Developer' }
+    { grant: 'READ', to: ['Viewer', 'Developer', 'Admin'] },
+    { grant: ['CREATE', 'UPDATE', 'DELETE'], to: ['Developer', 'Admin'] }
   ]
   entity ScriptInputs as projection on db.ScriptInputs;
 
@@ -49,7 +49,7 @@ service GroovyIdeService {
 
   type ExecutorStatus {
     enabled : Boolean;          // executor configured and enabled by an Admin
-    canRun  : Boolean;          // caller has the Developer role
+    canRun  : Boolean;          // caller has the Developer or Admin role
   }
 
   type PackageInfo {
@@ -90,6 +90,6 @@ service GroovyIdeService {
   function listArtifactScripts(packageId : String, type : String, artifactId : String) returns ArtifactScripts;
 
   /** Runs a script through the script-runner iFlow. Nothing is stored. */
-  @requires: 'Developer'
+  @requires: ['Developer', 'Admin']
   action run(script : LargeString, payload : LargeString, headers : many NameValue, properties : many NameValue) returns RunResult;
 }

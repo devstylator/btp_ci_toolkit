@@ -57,7 +57,7 @@ export async function loadExecutor(req: { reject: (status: number, msg: string) 
 
 /**
  * Posts a request to the script-runner iFlow. Not a CPI design-time change, so it is not routed through
- * `CpiClient.write`; access is controlled by the Developer role and the executor's `enabled` flag.
+ * `CpiClient.write`; access is controlled by the Developer/Admin role and the executor's `enabled` flag.
  */
 export class ExecutorClient {
   constructor(private readonly conn: ExecutorConnection) {}

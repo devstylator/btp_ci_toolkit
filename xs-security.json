@@ -15,8 +15,8 @@
     },
     {
       "name": "CiToolkitAdmin",
-      "description": "Administer configuration (includes viewer)",
-      "scope-references": ["$XSAPPNAME.Admin", "$XSAPPNAME.Viewer"]
+      "description": "Administer configuration and use all tools (includes viewer and developer)",
+      "scope-references": ["$XSAPPNAME.Admin", "$XSAPPNAME.Viewer", "$XSAPPNAME.Developer"]
     },
     {
       "name": "CiToolkitDeveloper",
@@ -32,7 +32,7 @@
     },
     {
       "name": "CiToolkitAdmin",
-      "description": "BTP CI Toolkit: use the tools and edit the configuration",
+      "description": "BTP CI Toolkit: full access (all tools, Groovy IDE edit/run, configuration)",
       "role-template-references": ["$XSAPPNAME.CiToolkitAdmin"]
     },
     {

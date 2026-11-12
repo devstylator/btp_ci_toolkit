@@ -51,6 +51,12 @@
               "roles": [
                 "Viewer"
               ]
+            },
+            "gil": {
+              "password": "gil",
+              "roles": [
+                "Admin"
+              ]
             }
           }
         },
