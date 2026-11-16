@@ -151,6 +151,10 @@ Keep `ci-toolkit-secrets` and its key while any stored direct credentials are re
   and scans every iFlow and Script Collection.
 - UI and OData are same-origin, so the absolute paths used by the launcher (`/odata/...`, `/configuration/webapp`)
   work unchanged. `scripts/copy-ui.mjs` copies `app/` (without `.cds` files) into `gen/srv/app`.
+- Session: the approuter ends the session after `SESSION_TIMEOUT` minutes without requests (`mta.yaml`, 30). The
+  launcher's `util/SessionGuard.js` sends `X-Requested-With: XMLHttpRequest` with every same-origin request, so the
+  approuter answers 401 (not a redirect to the login page) and the user gets a *Session expired* dialog (FR-NAV-9).
+  To test it, set `SESSION_TIMEOUT` to 1 (`cf set-env btp-ci-toolkit SESSION_TIMEOUT 1 && cf restage btp-ci-toolkit`).
 - TypeScript is compiled during `cds build --production`; the production server runs plain JS (no `tsx`).
 - Scope names stay `Viewer`/`Admin`/`Developer` (they are what `@requires` uses); the role templates and role collections carry
   the `CiToolkit` names. If you add a feature that needs new roles, add scope + role template + role collection

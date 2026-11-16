@@ -173,6 +173,8 @@ Common requirements for both:
   breadcrumbs from it: `#/<Entity>(<key>)` -> `Feature / Entity / key`).
 - UI must work embedded in a `sap.ui.core.ComponentContainer` (no `index.html`, no own shell).
 - Use relative/absolute service URLs from the manifest `dataSources`, never hard-code hosts.
+- Session expiry is handled by the launcher (FR-NAV-9): use plain `fetch`/UI5 models against same-origin URLs and do
+  not handle 401 yourself; the launcher shows the *Session expired* dialog.
 - UI5 version is pinned in the launcher bootstrap (`app/launcher/webapp/index.html`, currently 1.136.0);
   set `minUI5Version` accordingly and use only libraries that version provides.
 

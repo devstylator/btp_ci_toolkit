@@ -3,8 +3,9 @@ sap.ui.define([
   "sap/ui/core/Component",
   "sap/ui/core/routing/HashChanger",
   "sap/ui/core/Theming",
-  "sap/ui/model/json/JSONModel"
-], function (Controller, Component, HashChanger, Theming, JSONModel) {
+  "sap/ui/model/json/JSONModel",
+  "../util/SessionGuard"
+], function (Controller, Component, HashChanger, Theming, JSONModel, SessionGuard) {
   "use strict";
 
   const FEATURE_PARAM = "feature";
@@ -55,7 +56,9 @@ sap.ui.define([
         }
       } catch (e) {
         nav.setProperty("/loading", false);
-        nav.setProperty("/error", text("loadError", e.message));
+        if (await SessionGuard.check()) {
+          nav.setProperty("/error", text("loadError", e.message));
+        }
       }
     },
 
@@ -153,6 +156,11 @@ sap.ui.define([
       this._updateBreadcrumbs();
 
       try {
+        // UI5 loads the component's JS through <script> tags, which cannot report a 401: with an expired session
+        // they would get the login page and fail with "module could not be loaded". Ask the session guard first.
+        if (!(await SessionGuard.check())) {
+          return;
+        }
         sap.ui.loader.config({ paths: { [feature.component.replace(/\./g, "/")]: feature.componentUrl } });
         const component = await Component.create({ name: feature.component, id: `feature-${feature.ID}-${Date.now()}` });
         if (nav.getProperty("/selected") !== id) {
@@ -166,6 +174,9 @@ sap.ui.define([
           previous.destroy();
         }
       } catch (e) {
+        if (!(await SessionGuard.check())) {
+          return;
+        }
         const bundle = this.getOwnerComponent().getModel("i18n").getResourceBundle();
         nav.setProperty("/error", bundle.getText("featureLoadError", [feature.title, e.message]));
       } finally {

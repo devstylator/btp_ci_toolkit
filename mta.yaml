@@ -50,6 +50,8 @@ modules:
       keep-existing-routes: true
       disk-quota: 256M
       memory: 256M
+    properties:
+      SESSION_TIMEOUT: 30 # minutes of inactivity until the user must sign in again (approuter default: 15)
     requires:
       - name: srv-api
         group: destinations
