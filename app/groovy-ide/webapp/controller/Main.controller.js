@@ -317,7 +317,32 @@ Message processData(Message message) {
 
     onInputBodyLiveChange() {
       this._editorText("inputBodyEditor");
-      this._later("input", () => this._setIfChanged("/input/bodyType", formatter.bodyType(this._editorText("inputBodyEditor"))));
+      this._later("input", () => {
+        const text = this._editorText("inputBodyEditor");
+        const type = formatter.bodyType(text);
+        if (this._model.getProperty("/input/bodyType") === type) {
+          return;
+        }
+        // A type change re-renders the CodeEditor, which puts its `value` property back into Ace. That property only
+        // follows the typed/pasted text on blur, so sync it first (without invalidating) or the new text is lost.
+        const editor = this.byId("inputBodyEditor");
+        editor.setProperty("value", text, true);
+        // the re-rendering also takes the keyboard focus away; give it back so the user can keep typing
+        const textarea = editor.getDomRef("editor-textarea");
+        if (textarea && textarea === document.activeElement) {
+          const delegate = {
+            onAfterRendering: () => {
+              editor.removeEventDelegate(delegate);
+              const area = editor.getDomRef("editor-textarea");
+              if (area) {
+                area.focus();
+              }
+            }
+          };
+          editor.addEventDelegate(delegate);
+        }
+        this._model.setProperty("/input/bodyType", type);
+      });
     },
 
     async onNew() {
