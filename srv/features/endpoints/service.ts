@@ -3,6 +3,7 @@ import { CpiClient, CpiError } from '../../lib/cpi-client.js'
 import { loadConnection } from '../../lib/connections.js'
 import { CPI_CONCURRENCY, eachLimit } from '../../lib/async.js'
 import { anyMatcher } from '../../lib/pattern.js'
+import { cachedPirs, loadPlatformAccess, type Pir, pirsForRoles, readPlatformAccess } from '../../lib/service-manager.js'
 import { adapterFromUrl, addressMatches, servicePath, artifactIdFromEndpointId, findIflw, odataDate, parseSenderChannels, toSenderChannels } from './iflow.js'
 
 type Tenant = 'DEV' | 'PROD'
@@ -34,6 +35,7 @@ interface EndpointRow {
   authentication: string
   userRole: string
   roleSource: string
+  pirs: string
 }
 
 /** All entry points of a tenant (ServiceEndpoints), iFlow IDs/names resolved against the deployed artifacts. */
@@ -57,7 +59,8 @@ async function tenantEndpoints(client: CpiClient, tenant: Tenant, messages: Mess
       version: artifact?.Version ?? ep.Version ?? '',
       authentication: '',
       userRole: '',
-      roleSource: ''
+      roleSource: '',
+      pirs: ''
     }))
   })
 }
@@ -99,6 +102,26 @@ async function addAccessRoles(client: CpiClient, tenant: Tenant, rows: EndpointR
     messages.push({ tenant, level: 'WARN', message: `Access role could not be read for ${failed.length} iFlow(s): ${failed.sort().join(', ')}` })
   }
 }
+
+/** Roles of a (comma separated) user role value; unresolved `{{parameters}}` are not roles. */
+const roleList = (value: string) => value.split(',').map(r => r.trim()).filter(r => r && !r.includes('{{'))
+
+/** PIR instances of the tenant's subaccount; undefined when platform access is off or failed (WARN). */
+async function tenantPirs(tenant: Tenant, messages: Message[]): Promise<Pir[] | undefined> {
+  const { conn } = await readPlatformAccess(tenant)
+  if (!conn) return undefined
+  try {
+    return await cachedPirs(conn)
+  } catch (e) {
+    if (!(e instanceof CpiError)) throw e
+    messages.push({ tenant, level: 'WARN', message: `${tenant}: PIR instances could not be read (${e.message})` })
+    return undefined
+  }
+}
+
+/** PIRs granting any of `roles`, each with the roles it matched. */
+const grantingPirs = (pirs: Pir[], roles: string[]) =>
+  pirsForRoles(pirs, roles).map(p => ({ ...p, matchedRoles: p.roles.filter(r => roles.includes(r)) }))
 
 /** All deployed artifacts of a tenant (one call); an empty list with a WARN when the API fails. */
 async function runtimeArtifacts(client: CpiClient, tenant: Tenant, messages: Message[]): Promise<any[]> {
@@ -192,12 +215,18 @@ export default class EndpointsService extends cds.ApplicationService {
       }
       rows = rows.filter(r => iflowMatches(r.iflowName, r.iflowId) && urlMatches(r.url) &&
         (!adapter || r.adapter.toLowerCase() === adapter))
+      let pirsAvailable = false
       if (withRoles) {
         await addAccessRoles(client, tenant, rows, messages)
         rows = rows.filter(r => roleMatches(r.userRole))
+        const pirs = rows.length ? await tenantPirs(tenant, messages) : undefined
+        if (pirs) {
+          pirsAvailable = true
+          for (const row of rows) row.pirs = pirsForRoles(pirs, roleList(row.userRole)).map(p => p.name).join(', ')
+        }
       }
       const endpoints = rows.sort((a, b) => a.iflowName.localeCompare(b.iflowName) || a.url.localeCompare(b.url))
-      return { endpoints, messages }
+      return { endpoints, pirsAvailable, messages }
     }))
 
     this.on('endpointDetails', guard(async (req: any) => {
@@ -221,13 +250,29 @@ export default class EndpointsService extends cds.ApplicationService {
       const { source, channels: all } = await senderChannels(client, iflowId!, tenant, messages)
       if (source === 'NONE') {
         messages.push({ tenant, level: 'WARN', message: 'iFlow content could not be downloaded; sender channel unknown' })
-        return { deployment, channels: [], matched: false, contentSource: source, messages }
+        return { deployment, channels: [], matched: false, contentSource: source, pirsAvailable: false, messages }
       }
       const matching = all.filter(c => addressMatches(url, c.address))
       if (!all.length) messages.push({ tenant, level: 'WARN', message: 'No sender channel found in the iFlow' })
       else if (!matching.length) messages.push({ tenant, level: 'INFO', message: 'No sender channel address matched the URL; showing all sender channels' })
       if (source === 'DESIGNTIME') messages.push({ tenant, level: 'INFO', message: 'Sender channel read from the design-time (active) version; it may differ from the deployed one' })
-      return { deployment, channels: matching.length ? matching : all, matched: matching.length > 0, contentSource: source, messages }
+      const shown = matching.length ? matching : all
+      const pirs = shown.some(c => roleList(c.userRole).length) ? await tenantPirs(tenant, messages) : undefined
+      const channels = shown.map(c => ({ ...c, pirs: pirs ? grantingPirs(pirs, roleList(c.userRole)) : [] }))
+      return { deployment, channels, matched: matching.length > 0, contentSource: source, pirsAvailable: !!pirs, messages }
+    }))
+
+    this.on('listPirs', guard(async (req: any) => {
+      const tenant = req.data.tenant ?? 'DEV'
+      if (!TENANTS.includes(tenant)) req.reject(400, 'tenant must be DEV or PROD')
+      const conn = await loadPlatformAccess(tenant, req)
+      const pirs = await cachedPirs(conn)
+      const role = req.data.role?.trim()
+      const matches = anyMatcher(role)
+      const list = pirs
+        .map(p => ({ ...p, matchedRoles: role ? p.roles.filter(r => matches(r)) : [] }))
+        .filter(p => !role || p.matchedRoles.length)
+      return { pirs: list, messages: [] }
     }))
 
     return super.init()

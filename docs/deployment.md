@@ -92,6 +92,25 @@ the normal Edit/Save draft flow. Turning it on permits guarded CPI writes by too
 service account's permissions. It does not change those permissions. Connection tests only verify read access;
 deploying packages and removing locks remain separate future features.
 
+### BTP platform access (PIRs in Endpoints, optional)
+
+Endpoints can show which Process Integration Runtime (PIR, service `it-rt`) instances grant an endpoint's access
+role. It reads them through SAP Service Manager of the **CPI tenant's subaccount** (DEV and PROD separately).
+In that subaccount (any CF space; entitlement *Service Manager* if it is not in the marketplace):
+
+```bash
+cf create-service service-manager subaccount-audit ci-toolkit-sm
+cf create-service-key ci-toolkit-sm ci-toolkit
+cf service-key ci-toolkit-sm ci-toolkit      # sm_url, url, clientid, clientsecret
+```
+
+Then **Configuration -> BTP platform (PIRs)** -> DEV -> *Edit*: Service Manager URL = `sm_url`, token URL =
+`url` + `/oauth/token`, client ID = `clientid`, BTP cockpit URL (e.g. `https://emea.cockpit.btp.cloud.sap/cockpit`,
+trial `https://account.hanatrial.ondemand.com/trial`), *Enabled* -> *Save* -> *Set client secret* -> *Test connection*.
+Destination mode: an `OAuth2ClientCredentials` / `Internet` destination with URL `sm_url` and the same key values.
+`subaccount-audit` is read only; it sees all instances of the subaccount (all CF spaces) and their parameters, but
+not service keys, so the app never shows client IDs or secrets. Nothing changes in `mta.yaml` or `xs-security.json`.
+
 For local development against real BTP destinations, bind Destination and XSUAA services using CAP hybrid bindings
 and run with the hybrid profile (`cds bind -2 <destination-instance>,<xsuaa-instance>` followed by
 `npm run watch -- --profile hybrid`). Keep binding files/credentials out of git.

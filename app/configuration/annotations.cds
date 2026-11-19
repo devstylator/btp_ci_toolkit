@@ -194,3 +194,101 @@ annotate service.ScriptExecutor actions {
   @Common.SideEffects: { TargetProperties: ['in/lastTestAt', 'in/lastTestOk', 'in/lastTestMessage'] }
   test();
 };
+
+annotate service.PlatformAccess with {
+  code            @title: 'Environment';
+  connectionMode  @title: 'Connection mode'
+    @Common.ValueListWithFixedValues: true
+    @Common.ValueList: {
+      CollectionPath: 'ConnectionModes',
+      Parameters: [
+        { $Type: 'Common.ValueListParameterInOut', LocalDataProperty: connectionMode, ValueListProperty: 'code' },
+        { $Type: 'Common.ValueListParameterDisplayOnly', ValueListProperty: 'name' }
+      ]
+    };
+  smUrl           @title: 'Service Manager URL'
+    @description: 'sm_url of the service-manager service key, e.g. https://service-manager.cfapps.eu10.hana.ondemand.com';
+  tokenUrl        @title: 'Token URL'
+    @description: 'url of the service key followed by /oauth/token';
+  clientId        @title: 'Client ID';
+  secretSet       @title: 'Client secret stored';
+  destinationName @title: 'BTP Destination name'
+    @description: 'OAuth2ClientCredentials destination whose URL is the Service Manager URL (sm_url)';
+  cockpitUrl      @title: 'BTP cockpit URL'
+    @description: 'Base URL of the BTP cockpit for links to the PIR instances, e.g. https://emea.cockpit.btp.cloud.sap/cockpit (trial: https://account.hanatrial.ondemand.com/trial)';
+  enabled         @title: 'Enabled'
+    @description: 'Endpoints shows the PIR instances granting an access role only when this is on';
+  lastTestAt      @title: 'Last test'        @readonly;
+  lastTestOk      @title: 'Last test successful' @readonly;
+  lastTestMessage @title: 'Last test message' @readonly;
+};
+
+annotate service.PlatformAccess with @(
+  UI.HeaderInfo: {
+    TypeName      : 'BTP platform access',
+    TypeNamePlural: 'BTP platform access',
+    Title         : { Value: code },
+    Description   : { Value: 'SAP Service Manager (Process Integration Runtime instances)' }
+  },
+
+  UI.SelectionPresentationVariant #Platform: {
+    Text               : 'BTP platform (PIRs)',
+    SelectionVariant   : { SelectOptions: [] },
+    PresentationVariant: { Visualizations: ['@UI.LineItem'] }
+  },
+
+  UI.LineItem: [
+    { Value: code },
+    { Value: connectionMode },
+    { Value: smUrl },
+    { Value: destinationName },
+    { Value: enabled },
+    { Value: lastTestOk },
+    { Value: lastTestAt }
+  ],
+
+  UI.Identification: [
+    { $Type: 'UI.DataFieldForAction', Action: 'ConfigService.test', Label: 'Test connection' }
+  ],
+
+  UI.Facets: [
+    { $Type: 'UI.ReferenceFacet', ID: 'Platform', Label: 'BTP platform access', Target: '@UI.FieldGroup#Platform' },
+    { $Type: 'UI.ReferenceFacet', ID: 'Direct', Label: 'Direct credentials', Target: '@UI.FieldGroup#Direct', ![@UI.Hidden]: (connectionMode = 'DESTINATION') },
+    { $Type: 'UI.ReferenceFacet', ID: 'Destination', Label: 'BTP Destination', Target: '@UI.FieldGroup#Destination', ![@UI.Hidden]: (connectionMode <> 'DESTINATION') },
+    { $Type: 'UI.ReferenceFacet', ID: 'Test', Label: 'Last connection test', Target: '@UI.FieldGroup#Test' }
+  ],
+
+  UI.FieldGroup #Platform: {
+    Data: [
+      { Value: connectionMode },
+      { Value: cockpitUrl },
+      { Value: enabled }
+    ]
+  },
+
+  UI.FieldGroup #Destination: {
+    Data: [{ Value: destinationName }]
+  },
+
+  UI.FieldGroup #Direct: {
+    Data: [
+      { Value: smUrl },
+      { Value: tokenUrl },
+      { Value: clientId },
+      { Value: secretSet }
+    ]
+  },
+
+  UI.FieldGroup #Test: {
+    Data: [
+      { Value: lastTestAt },
+      { Value: lastTestOk },
+      { Value: lastTestMessage }
+    ]
+  }
+);
+
+annotate service.PlatformAccess actions {
+  @Common.SideEffects: { TargetProperties: ['in/lastTestAt', 'in/lastTestOk', 'in/lastTestMessage'] }
+  test();
+};

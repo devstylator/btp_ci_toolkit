@@ -32,7 +32,8 @@
       "routes": [
         { "pattern": ":?query:", "name": "ConnectionsList", "target": "ConnectionsList" },
         { "pattern": "Connections({key}):?query:", "name": "ConnectionsObjectPage", "target": "ConnectionsObjectPage" },
-        { "pattern": "ScriptExecutor({key}):?query:", "name": "ScriptExecutorObjectPage", "target": "ScriptExecutorObjectPage" }
+        { "pattern": "ScriptExecutor({key}):?query:", "name": "ScriptExecutorObjectPage", "target": "ScriptExecutorObjectPage" },
+        { "pattern": "PlatformAccess({key}):?query:", "name": "PlatformAccessObjectPage", "target": "PlatformAccessObjectPage" }
       ],
       "targets": {
         "ConnectionsList": {
@@ -48,12 +49,14 @@
               "views": {
                 "paths": [
                   { "key": "connections", "annotationPath": "com.sap.vocabularies.UI.v1.SelectionPresentationVariant#Connections" },
-                  { "key": "executor", "entitySet": "ScriptExecutor", "annotationPath": "com.sap.vocabularies.UI.v1.SelectionPresentationVariant#Executor" }
+                  { "key": "executor", "entitySet": "ScriptExecutor", "annotationPath": "com.sap.vocabularies.UI.v1.SelectionPresentationVariant#Executor" },
+                  { "key": "platform", "entitySet": "PlatformAccess", "annotationPath": "com.sap.vocabularies.UI.v1.SelectionPresentationVariant#Platform" }
                 ]
               },
               "navigation": {
                 "Connections": { "detail": { "route": "ConnectionsObjectPage" } },
-                "ScriptExecutor": { "detail": { "route": "ScriptExecutorObjectPage" } }
+                "ScriptExecutor": { "detail": { "route": "ScriptExecutorObjectPage" } },
+                "PlatformAccess": { "detail": { "route": "PlatformAccessObjectPage" } }
               }
             }
           }
@@ -90,6 +93,31 @@
           "options": {
             "settings": {
               "contextPath": "/ScriptExecutor",
+              "editableHeaderContent": false,
+              "content": {
+                "header": {
+                  "actions": {
+                    "SetSecret": {
+                      "press": "btp.toolkit.configuration.ext.SecretAction.onSetSecret",
+                      "text": "Set client secret",
+                      "enabled": "{= !${ui>/isEditable} }",
+                      "visible": "btp.toolkit.configuration.ext.SecretAction.isDirectConnection",
+                      "placement": "After",
+                      "anchor": "DataFieldForAction::ConfigService.test"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "PlatformAccessObjectPage": {
+          "type": "Component",
+          "id": "PlatformAccessObjectPage",
+          "name": "sap.fe.templates.ObjectPage",
+          "options": {
+            "settings": {
+              "contextPath": "/PlatformAccess",
               "editableHeaderContent": false,
               "content": {
                 "header": {

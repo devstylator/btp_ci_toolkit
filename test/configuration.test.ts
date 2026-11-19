@@ -131,6 +131,24 @@ test('configuration, CPI transport and modification policy', async t => {
     assert.equal((await api('ConnectionModes')).status, 200)
   })
 
+  await t.test('BTP platform access: rows created on first read, Admin only, secret write-only, test needs it enabled', async () => {
+    const response = await api('PlatformAccess')
+    assert.equal(response.status, 200)
+    const rows = (await response.json()).value
+    assert.deepEqual(rows.map((r: any) => [r.code, r.enabled, r.secretSet, r.cockpitUrl]).sort(), [
+      ['DEV', false, false, 'https://emea.cockpit.btp.cloud.sap/cockpit'],
+      ['PROD', false, false, 'https://emea.cockpit.btp.cloud.sap/cockpit']
+    ])
+    assert.ok(rows.every((r: any) => !('clientSecretEnc' in r)))
+    assert.equal((await api('PlatformAccess', 'GET', undefined, 'bob')).status, 403)
+    assert.equal((await api("PlatformAccess(code='DEV',IsActiveEntity=true)/ConfigService.setSecret", 'POST', { secret: 'sm-secret' })).status, 200)
+    const dev = await (await api("PlatformAccess(code='DEV',IsActiveEntity=true)")).json()
+    assert.equal(dev.secretSet, true)
+    const stored = await SELECT.one.from('btp.toolkit.PlatformAccess').where({ code: 'DEV' })
+    assert.ok(stored.clientSecretEnc && !stored.clientSecretEnc.includes('sm-secret'))
+    assert.equal((await api("PlatformAccess(code='DEV',IsActiveEntity=true)/ConfigService.test", 'POST', {})).status, 412)
+  })
+
   await t.test('existing direct credentials still read and page; token reused', async () => {
     for (const code of ['DEV', 'PROD']) await UPDATE.entity(table).set({ tenantUrl: tenant, tokenUrl: `${tenant}/token`, clientId: 'test', clientSecretEnc: encrypt('test-secret') }).where({ code })
     const client = new CpiClient(await loadConnection('DEV', req))

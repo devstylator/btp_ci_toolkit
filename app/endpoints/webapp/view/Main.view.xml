@@ -155,6 +155,10 @@
                     tooltip="{path: 'view>roleSource', formatter: '.formatter.contentSource'}"/>
                 </table:template>
               </table:Column>
+              <table:Column id="colPirs" width="12rem" sortProperty="pirs" filterProperty="pirs" visible="{= ${view>/withRoles} &amp;&amp; ${view>/pirsAvailable} &amp;&amp; ${view>/cols/pirs}}">
+                <Label text="{i18n>colPirs}" tooltip="{i18n>colPirsTooltip}"/>
+                <table:template><Text text="{path: 'view>pirs', formatter: '.formatter.value'}" wrapping="false" tooltip="{view>pirs}"/></table:template>
+              </table:Column>
               <table:Column id="colVersion" width="5rem" sortProperty="version" filterProperty="version" visible="{view>/cols/version}">
                 <Label text="{i18n>colVersion}"/>
                 <table:template><Text text="{path: 'view>version', formatter: '.formatter.value'}" wrapping="false"/></table:template>
@@ -264,6 +268,43 @@
               <Label text="{i18n>contentSource}"/>
               <Text text="{path: 'view>/details/contentSource', formatter: '.formatter.contentSource'}"/>
             </form:SimpleForm>
+            <MessageStrip
+              text="{i18n>pirsNotAvailable}"
+              type="Information"
+              showIcon="true"
+              visible="{= !${view>/details/pirsAvailable} &amp;&amp; !!${view>hasRole}}"
+              class="sapUiResponsiveMargin"/>
+            <Table
+              headerText="{i18n>secPirs}"
+              items="{path: 'view>pirs', templateShareable: false}"
+              noDataText="{i18n>noPirs}"
+              visible="{= !!${view>/details/pirsAvailable} &amp;&amp; !!${view>hasRole}}"
+              class="sapUiResponsiveMargin"
+              width="auto">
+              <columns>
+                <Column width="30%"><Text text="{i18n>pirName}"/></Column>
+                <Column minScreenWidth="Tablet" demandPopin="true"><Text text="{i18n>pirPlan}"/></Column>
+                <Column minScreenWidth="Tablet" demandPopin="true"><Text text="{i18n>pirGrantTypes}"/></Column>
+                <Column minScreenWidth="Desktop" demandPopin="true"><Text text="{i18n>pirSpace}"/></Column>
+                <Column minScreenWidth="Desktop" demandPopin="true"><Text text="{i18n>pirRoles}"/></Column>
+              </columns>
+              <items>
+                <ColumnListItem>
+                  <cells>
+                    <Link
+                      text="{view>name}"
+                      href="{view>cockpitLink}"
+                      target="_blank"
+                      enabled="{= !!${view>cockpitLink}}"
+                      tooltip="{i18n>openInCockpit}"/>
+                    <Text text="{path: 'view>plan', formatter: '.formatter.value'}"/>
+                    <Text text="{path: 'view>grantTypes', formatter: '.formatter.list'}"/>
+                    <Text text="{path: 'view>spaceName', formatter: '.formatter.value'}"/>
+                    <Text text="{path: 'view>roles', formatter: '.formatter.list'}" maxLines="3" tooltip="{path: 'view>roles', formatter: '.formatter.list'}"/>
+                  </cells>
+                </ColumnListItem>
+              </items>
+            </Table>
             <Panel
               headerText="{i18n>secProperties}"
               expandable="true"

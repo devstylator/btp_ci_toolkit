@@ -1,7 +1,8 @@
 /**
  * Endpoints: inbound endpoints of deployed artifacts of DEV or PROD (CPI `ServiceEndpoints` API), filtered on the
- * server, with the sender channel's authentication and access role (read from the iFlows) and deployment information
- * on request. Read only; nothing is persisted.
+ * server, with the sender channel's authentication and access role (read from the iFlows), the Process Integration
+ * Runtime (PIR) instances granting that role (SAP Service Manager, when BTP platform access is configured) and
+ * deployment information on request. Read only; nothing is persisted.
  */
 @path: '/odata/v4/endpoints'
 @requires: ['Viewer', 'Admin']
@@ -30,11 +31,36 @@ service EndpointsService {
     userRole       : String;
     /** RUNTIME | DESIGNTIME | NONE (could not be read) | '' (not requested). */
     roleSource     : String;
+    /** Names of the PIR instances granting the access role (comma separated); empty unless `pirsAvailable`. */
+    pirs           : String;
   }
 
   type EndpointList {
-    endpoints : many Endpoint;
-    messages  : many Message;  // skipped tenant, failed reads (summarized)
+    endpoints     : many Endpoint;
+    /** True when access roles were read and the PIR instances of the tenant's subaccount could be read. */
+    pirsAvailable : Boolean;
+    messages      : many Message;  // skipped tenant, failed reads (summarized)
+  }
+
+  /** Process Integration Runtime instance (service `it-rt`). Never contains credentials. */
+  type Pir {
+    id             : String;
+    name           : String;
+    plan           : String;       // integration-flow | api | '' (plan not visible to the Service Manager key)
+    roles          : many String;
+    grantTypes     : many String;
+    parametersRead : Boolean;
+    spaceName      : String;
+    orgName        : String;
+    createdAt      : String;
+    cockpitLink    : String;       // instance page in the BTP cockpit
+    /** The requested roles (endpoint access role / `role` filter) this instance grants. */
+    matchedRoles   : many String;
+  }
+
+  type PirList {
+    pirs     : many Pir;
+    messages : many Message;
   }
 
   type PackageInfo {
@@ -55,6 +81,8 @@ service EndpointsService {
     userRole       : String;
     certificates   : String;
     properties     : many Property;
+    /** PIR instances granting `userRole`; empty when the platform access is not configured (`pirsAvailable`). */
+    pirs           : many Pir;
   }
 
   type Deployment {
@@ -70,6 +98,7 @@ service EndpointsService {
     channels      : many SenderChannel;
     matched       : Boolean;
     contentSource : String;  // RUNTIME | DESIGNTIME | NONE
+    pirsAvailable : Boolean;
     messages      : many Message;
   }
 
@@ -87,4 +116,11 @@ service EndpointsService {
 
   /** Deployment information and sender channel (adapter, authentication, user role) of one endpoint. */
   function endpointDetails(tenant : Tenant, iflowId : String, url : String) returns EndpointDetails;
+
+  /**
+   * PIR instances of the tenant's subaccount (BTP platform access, see Configuration) with the roles they grant.
+   * `role` (optional) is a pattern like the other filters; only instances granting a matching role are returned.
+   * Not configured / disabled -> 412.
+   */
+  function listPirs(tenant : Tenant, role : String) returns PirList;
 }

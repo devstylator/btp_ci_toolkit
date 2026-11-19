@@ -5,11 +5,12 @@ import { loadConnection } from '../lib/connections.js'
 import { isAllowedUrl } from '../lib/urls.js'
 import { DB_EXECUTOR, ensureExecutorRow, ExecutorClient, loadExecutor } from '../lib/script-executor.js'
 import { buildRequest, parseResponse } from '../features/groovy-ide/contract.js'
+import { DB_PLATFORM, ensurePlatformRows, loadPlatformAccess, ServiceManagerClient } from '../lib/service-manager.js'
 
 const { SELECT, UPDATE } = cds.ql
 const DB_CONNECTIONS = 'btp.toolkit.Connections'
-const URL_FIELDS = ['tenantUrl', 'tokenUrl', 'endpointUrl']
-const TABLES: Record<string, string> = { Connections: DB_CONNECTIONS, ScriptExecutor: DB_EXECUTOR }
+const URL_FIELDS = ['tenantUrl', 'tokenUrl', 'endpointUrl', 'smUrl', 'cockpitUrl']
+const TABLES: Record<string, string> = { Connections: DB_CONNECTIONS, ScriptExecutor: DB_EXECUTOR, PlatformAccess: DB_PLATFORM }
 /** DB table behind a request target (active or draft entity). */
 const tableOf = (req: any) => TABLES[req.target.name.replace(/\.drafts$/, '').split('.').pop()]
 const TEST_BODY = 'BTP CI Toolkit executor test'
@@ -25,7 +26,8 @@ export default class ConfigService extends cds.ApplicationService {
       { code: 'DIRECT', name: 'Direct credentials' },
       { code: 'DESTINATION', name: 'BTP Destination' }
     ])
-    this.before('UPDATE', ['Connections', 'ScriptExecutor'], (req: any) => {
+    const CONFIG_ENTITIES = ['Connections', 'ScriptExecutor', 'PlatformAccess']
+    this.before('UPDATE', CONFIG_ENTITIES, (req: any) => {
       for (const f of URL_FIELDS) {
         const v = req.data[f]
         if (v && !isAllowedUrl(v)) req.error(400, `${f} must be a valid https:// URL (http://localhost allowed locally)`, f)
@@ -36,7 +38,7 @@ export default class ConfigService extends cds.ApplicationService {
     })
 
     // Validate the complete draft on save, rather than rejecting intermediate edits.
-    this.before('SAVE', ['Connections', 'ScriptExecutor'], (req: any) => {
+    this.before('SAVE', CONFIG_ENTITIES, (req: any) => {
       // Draft PATCHes do not pass the UPDATE handler above, so URLs are checked again on activation.
       for (const f of URL_FIELDS) {
         const v = req.data[f]
@@ -47,7 +49,7 @@ export default class ConfigService extends cds.ApplicationService {
       }
     })
 
-    this.on('setSecret', ['Connections', 'ScriptExecutor'], async (req: any) => {
+    this.on('setSecret', CONFIG_ENTITIES, async (req: any) => {
       const table = tableOf(req)
       const code = req.params[0]?.code ?? req.params[0]
       const secret = req.data.secret
@@ -61,8 +63,9 @@ export default class ConfigService extends cds.ApplicationService {
 
     // The executor row is not seeded (HDI table data would reset it on redeploy); create it on first read.
     this.before('READ', 'ScriptExecutor', () => ensureExecutorRow())
+    this.before('READ', 'PlatformAccess', () => ensurePlatformRows())
 
-    this.after('READ', ['Connections', 'ScriptExecutor'], async (rows: any, req: any) => {
+    this.after('READ', CONFIG_ENTITIES, async (rows: any, req: any) => {
       const list = (Array.isArray(rows) ? rows : [rows]).filter(Boolean)
       if (!list.length) return
       const stored = await SELECT.from(tableOf(req)).columns('code', 'clientSecretEnc')
@@ -106,6 +109,27 @@ export default class ConfigService extends cds.ApplicationService {
         message = e.message
       }
       await UPDATE.entity(DB_EXECUTOR)
+        .set({ lastTestAt: new Date().toISOString(), lastTestOk: ok, lastTestMessage: message.slice(0, 500) })
+        .where({ code })
+      if (ok) req.notify(message)
+      else req.warn(message)
+      return { ok, message }
+    })
+
+    this.on('test', 'PlatformAccess', async (req: any) => {
+      const code = req.params[0]?.code ?? req.params[0]
+      const conn = await loadPlatformAccess(code, req)
+      let ok = false
+      let message: string
+      try {
+        const pirs = await new ServiceManagerClient(conn).listPirs()
+        ok = true
+        message = `Connection successful: ${pirs.length} Process Integration Runtime instance(s) found`
+      } catch (e: any) {
+        if (!(e instanceof CpiError)) throw e
+        message = e.message
+      }
+      await UPDATE.entity(DB_PLATFORM)
         .set({ lastTestAt: new Date().toISOString(), lastTestOk: ok, lastTestMessage: message.slice(0, 500) })
         .where({ code })
       if (ok) req.notify(message)

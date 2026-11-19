@@ -15,11 +15,12 @@ sap.ui.define([
 
   /** Column visibility (key = column field); remembered per browser. */
   const DEFAULT_COLUMNS = {
-    iflowName: true, iflowId: true, adapter: true, path: true, url: false, authentication: true, userRole: true, version: true
+    iflowName: true, iflowId: true, adapter: true, path: true, url: false, authentication: true, userRole: true, pirs: true,
+    version: true
   };
   const COLUMN_LABELS = {
     iflowName: "iflowName", iflowId: "iflowId", adapter: "colAdapter", path: "colPath", url: "colEndpoint",
-    authentication: "authentication", userRole: "colRole", version: "colVersion"
+    authentication: "authentication", userRole: "colRole", pirs: "colPirs", version: "colVersion"
   };
   const COLUMNS_KEY = "btp-ci-toolkit.endpoints.columns";
 
@@ -56,6 +57,7 @@ sap.ui.define([
         criteriaText: "",
         // result
         withRoles: false,
+        pirsAvailable: false,
         cols: loadColumns(),
         endpoints: [],
         messages: [],
@@ -148,6 +150,7 @@ sap.ui.define([
       try {
         const result = await this._get(`listEndpoints(${params.join(",")})`);
         m.setProperty("/withRoles", accessRoles);
+        m.setProperty("/pirsAvailable", !!result.pirsAvailable);
         m.setProperty("/endpoints", result.endpoints || []);
         m.setProperty("/messages", result.messages || []);
         m.setProperty("/loaded", true);
@@ -175,7 +178,7 @@ sap.ui.define([
       }
       const query = (this._model.getProperty("/query") || "").trim();
       binding.filter(query ? new Filter({
-        filters: ["iflowName", "iflowId", "adapter", "path", "url", "authentication", "userRole"].map((path) =>
+        filters: ["iflowName", "iflowId", "adapter", "path", "url", "authentication", "userRole", "pirs"].map((path) =>
           new Filter({ path, operator: FilterOperator.Contains, value1: query, caseSensitive: false })),
         and: false
       }) : [], "Application");
@@ -299,6 +302,10 @@ sap.ui.define([
         if (this._model.getProperty("/selected") !== row) {
           return; // another endpoint was opened meanwhile
         }
+        // a resolved access role (not an unresolved {{parameter}}) can be granted by PIR instances
+        (details.channels || []).forEach((c) => {
+          c.hasRole = !!c.userRole && !c.userRole.includes("{{");
+        });
         this._model.setProperty("/details", details);
         const adapters = [...new Set((details.channels || []).map((c) => c.adapter).filter(Boolean))];
         if (details.matched && adapters.length) {

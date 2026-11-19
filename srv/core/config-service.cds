@@ -1,9 +1,10 @@
 using { btp.toolkit as db } from '../../db/connections';
 using { btp.toolkit.ScriptExecutor as Executor } from '../../db/groovy-ide';
+using { btp.toolkit.PlatformAccess as Platform } from '../../db/connections';
 
 /**
  * Configuration of the CPI connections (DEV / PROD). Admin only.
- * Also the script executor (runner iFlow) used by the Groovy IDE.
+ * Also the script executor (runner iFlow) used by the Groovy IDE and the BTP platform access (Service Manager, PIRs).
  * Client secrets are write-only: set them with the `setSecret` action, read `secretSet` to know if one is stored.
  */
 @path: '/odata/v4/config'
@@ -56,6 +57,29 @@ service ConfigService {
     action setSecret(secret : String) returns Boolean;
 
     /** Runs a trivial script through the runner iFlow. */
+    action test() returns TestResult;
+  };
+
+  /**
+   * BTP platform access per environment (SAP Service Manager key of the CPI tenant's subaccount), used by
+   * Endpoints to show the Process Integration Runtime (PIR) instances granting an access role. Rows DEV and PROD,
+   * created on first read.
+   */
+  @restrict: [{ grant: ['READ', 'UPDATE', 'test', 'setSecret'], to: 'Admin' }]
+  @Capabilities: {
+    InsertRestrictions.Insertable : false,
+    DeleteRestrictions.Deletable  : false
+  }
+  @odata.draft.enabled
+  entity PlatformAccess as projection on Platform {
+    *,
+    virtual null as secretSet : Boolean   // filled on read
+  } excluding { clientSecretEnc }
+  actions {
+    /** Stores the OAuth client secret (encrypted). It can never be read back. */
+    action setSecret(secret : String) returns Boolean;
+
+    /** Requests a token and lists the PIR instances of the subaccount. */
     action test() returns TestResult;
   };
 }

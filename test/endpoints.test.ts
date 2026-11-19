@@ -4,13 +4,45 @@ import { createServer, type Server } from 'node:http'
 import cds from '@sap/cds'
 import { encrypt } from '../srv/lib/crypto.js'
 import { zip } from './zip.js'
+import { cockpitLink, looksLikePir } from '../srv/lib/service-manager.js'
 import { adapterFromUrl, addressMatches, artifactIdFromEndpointId, servicePath, parseSenderChannels, toSenderChannels } from '../srv/features/endpoints/iflow.js'
 
-const { UPDATE } = cds.ql
+const { INSERT, UPDATE } = cds.ql
 let app: Server
 let upstream: Server
 let base: string
 let tenant: string
+let hanaParamsRead = 0
+
+// fake SAP Service Manager: two pages of instances; plan of pir-orders is not visible (like plan subaccount-audit)
+const ctx = { global_account_id: 'ga1', subaccount_id: 'sa1', space_name: 'dev', organization_name: 'org' }
+const SM_PAGES: Record<string, unknown> = {
+  first: { num_items: 4, token: 'page2', items: [
+    { id: 'i-orders', name: 'pir-orders', service_plan_id: 'p-hidden', subaccount_id: 'sa1', created_at: '2026-01-01T00:00:00Z', context: ctx },
+    { id: 'i-xsuaa', name: 'app-auth', service_plan_id: 'p-hidden-2', context: ctx }
+  ] },
+  page2: { num_items: 4, items: [
+    { id: 'i-api', name: 'pir-api', service_plan_id: 'p-api', subaccount_id: 'sa1', context: ctx },
+    { id: 'i-hana', name: 'db', service_plan_id: 'p-hana', context: ctx }
+  ] }
+}
+const SM_PARAMS: Record<string, unknown> = {
+  'i-orders': { roles: ['Orders.Send', 'ESBMessaging.send'], 'grant-types': ['client_credentials'], 'token-validity': 3600 },
+  'i-xsuaa': { xsappname: 'app', 'grant-types': ['client_credentials'], roles: [] },
+  'i-api': { roles: ['WorkspacePackagesRead'], 'grant-types': ['client_credentials'] }
+}
+function serviceManager(url: string): unknown {
+  const u = new URL(url, 'http://x')
+  if (u.pathname === '/sm/v1/service_instances') return SM_PAGES[u.searchParams.get('token') ?? 'first']
+  if (u.pathname === '/sm/v1/service_plans') return { items: [
+    { id: 'p-api', catalog_name: 'api', service_offering_id: 'o-it' },
+    { id: 'p-hana', catalog_name: 'hdi-shared', service_offering_id: 'o-hana' }
+  ] }
+  if (u.pathname === '/sm/v1/service_offerings') return { items: [{ id: 'o-it', catalog_name: 'it-rt' }, { id: 'o-hana', catalog_name: 'hana' }] }
+  const params = /^\/sm\/v1\/service_instances\/([^/]+)\/parameters$/.exec(u.pathname)
+  if (params?.[1] === 'i-hana') hanaParamsRead++
+  return params ? SM_PARAMS[params[1]] : undefined
+}
 
 const prop = (key: string, value: string) => `<ifl:property><key>${key}</key><value>${value}</value></ifl:property>`
 const IFLW = `<?xml version="1.0" encoding="UTF-8"?>
@@ -67,6 +99,15 @@ test('artifact ID is taken from the ServiceEndpoints ID', () => {
   assert.equal(artifactIdFromEndpointId('Orders'), 'Orders')
 })
 
+test('cockpit link and PIR detection by parameters', () => {
+  assert.equal(cockpitLink('https://account.hanatrial.ondemand.com/trial/', 'ga', 'sa', 'id'),
+    'https://account.hanatrial.ondemand.com/trial/#/globalaccount/ga/subaccount/sa/service-instances&//detail/id/?layout=TwoColumnsMidExpanded')
+  assert.equal(cockpitLink('', 'ga', 'sa', 'id'), '')
+  assert.ok(looksLikePir({ roles: ['A'], 'grant-types': ['client_credentials'] }))
+  assert.ok(!looksLikePir({ xsappname: 'x', roles: [], 'grant-types': [] }))
+  assert.ok(!looksLikePir(undefined))
+})
+
 test('channel address matches the endpoint URL', () => {
   assert.ok(addressMatches('https://t.example/http/orders/v1', '/orders/v1'))
   assert.ok(addressMatches('https://t.example/http/orders/v1/', 'orders/v1'))
@@ -90,6 +131,12 @@ before(async () => {
     }
     if (request.headers.authorization !== 'Bearer test-token') {
       response.writeHead(401).end()
+      return
+    }
+    if (request.url?.startsWith('/sm/')) {
+      const data = serviceManager(request.url)
+      if (data) response.setHeader('Content-Type', 'application/json').end(JSON.stringify(data))
+      else response.writeHead(404).end()
       return
     }
     const url = decodeURIComponent(request.url ?? '')
@@ -129,6 +176,11 @@ before(async () => {
   await UPDATE.entity('btp.toolkit.Connections').set({
     tenantUrl: tenant, tokenUrl: `${tenant}/token`, clientId: 'id', clientSecretEnc: encrypt('secret'), enabled: true
   }).where({ code: 'DEV' })
+  await INSERT.into('btp.toolkit.PlatformAccess').entries([
+    { code: 'DEV', connectionMode: 'DIRECT', smUrl: `${tenant}/sm`, tokenUrl: `${tenant}/token`, clientId: 'sm',
+      clientSecretEnc: encrypt('sm-secret'), cockpitUrl: 'https://cockpit.example', enabled: true },
+    { code: 'PROD', connectionMode: 'DIRECT', enabled: false }
+  ])
 })
 
 after(async () => {
@@ -155,6 +207,9 @@ test('Endpoints service', async t => {
       ['DEV', 'Orders', 'Orders API', 'HTTPS', 'RoleBased', 'Orders.Send', 'RUNTIME']
     ])
     assert.deepEqual(body.endpoints.map((e: any) => e.path), ['/cxf/legacy', '/http/orders/v1'])
+    // PIRs granting the role; the unresolved parameter of Legacy is not a role
+    assert.equal(body.pirsAvailable, true)
+    assert.deepEqual(body.endpoints.map((e: any) => e.pirs), ['', 'pir-orders'])
     assert.deepEqual(body.messages, [])
   })
 
@@ -191,6 +246,39 @@ test('Endpoints service', async t => {
     assert.equal(body.contentSource, 'RUNTIME')
     assert.equal(body.matched, true)
     assert.deepEqual(body.channels.map((c: any) => [c.adapter, c.userRole]), [['HTTPS', 'Orders.Send']])
+    assert.equal(body.pirsAvailable, true)
+    const [pir] = body.channels[0].pirs
+    assert.equal(body.channels[0].pirs.length, 1)
+    assert.deepEqual([pir.name, pir.plan, pir.matchedRoles, pir.grantTypes, pir.spaceName], ['pir-orders', '', ['Orders.Send'], ['client_credentials'], 'dev'])
+    assert.equal(pir.cockpitLink, 'https://cockpit.example/#/globalaccount/ga1/subaccount/sa1/service-instances&//detail/i-orders/?layout=TwoColumnsMidExpanded')
+  })
+
+  await t.test('PIRs: listed from all pages, by plan or parameter shape, filtered by role pattern', async () => {
+    const { status, body } = await call(`listPirs(tenant='DEV')`)
+    assert.equal(status, 200)
+    assert.deepEqual(body.pirs.map((p: any) => [p.name, p.plan, p.roles]), [
+      ['pir-api', 'api', ['WorkspacePackagesRead']],
+      ['pir-orders', '', ['Orders.Send', 'ESBMessaging.send']]
+    ])
+    assert.equal(hanaParamsRead, 0) // known non-PIR plans are skipped without reading parameters
+    assert.ok(!JSON.stringify(body).includes('secret'))
+    const filtered = await call(`listPirs(tenant='DEV',role='esb*')`)
+    assert.deepEqual(filtered.body.pirs.map((p: any) => [p.name, p.matchedRoles]), [['pir-orders', ['ESBMessaging.send']]])
+    assert.equal((await call(`listPirs(tenant='PROD')`)).status, 412)
+    assert.equal((await call(`listPirs(tenant='QA')`)).status, 400)
+  })
+
+  await t.test('PIRs: disabled platform access hides them without failing the endpoint list', async () => {
+    await UPDATE.entity('btp.toolkit.PlatformAccess').set({ enabled: false }).where({ code: 'DEV' })
+    try {
+      const { status, body } = await call(`listEndpoints(tenant='DEV',iflow='Orders')`)
+      assert.equal(status, 200)
+      assert.deepEqual([body.pirsAvailable, body.endpoints[0].pirs, body.messages], [false, '', []])
+      const details = await call(`endpointDetails(tenant='DEV',iflowId='Orders',url=${lit(`${tenant}/http/orders/v1`)})`)
+      assert.deepEqual([details.body.pirsAvailable, details.body.channels[0].pirs], [false, []])
+    } finally {
+      await UPDATE.entity('btp.toolkit.PlatformAccess').set({ enabled: true }).where({ code: 'DEV' })
+    }
   })
 
   await t.test('details: falls back to the design-time content and shows all channels when nothing matches', async () => {

@@ -10,9 +10,9 @@ Current features:
 |---------|--------------|
 | **Version Comparator** | Lists the DEV packages (filter by name); opening a package compares the versions of all its artifacts between DEV and PROD (version numbers only), with a status per artifact (match, differs, missing in DEV/PROD), a display filter and a step log. Nothing is stored. |
 | **Groovy IDE** | GroovyIDE-like editor for CPI Groovy scripts: run them on a script-runner iFlow (body, headers, properties, console), save scripts with versions and named inputs (body, headers, properties) in the app DB, download scripts read only from DEV iFlows / Script Collections. See [docs/groovy-ide.md](docs/groovy-ide.md). |
-| **Endpoints** | Lists the inbound endpoints of deployed iFlows of DEV or PROD, filtered by package, iFlow, URL, adapter and access role (wildcards), with the sender channel's authentication and access role (user role) per endpoint; columns can be sorted and filtered. The detail view adds deployment info (version, status, deployed by/on) and all sender channel properties. Read only. |
+| **Endpoints** | Lists the inbound endpoints of deployed iFlows of DEV or PROD, filtered by package, iFlow, URL, adapter and access role (wildcards), with the sender channel's authentication and access role (user role) per endpoint and the Process Integration Runtime (PIR) instances granting that role (via SAP Service Manager, optional); columns can be sorted and filtered. The detail view adds deployment info (version, status, deployed by/on) , all sender channel properties and, per channel, the PIR instances with a link to the BTP cockpit. Read only. |
 | **Search** | Searches one tenant (all packages or one) for iFlow configuration parameters and, in Groovy scripts of iFlows and Script Collections, for declared variables and properties/headers read or set via the message API. Name and/or value patterns with `*` / `+` wildcards, optional case sensitivity; findings table with package, artifact and script line. Read only. |
-| **Configuration** | Maintains DEV/PROD connections using direct credentials (encrypted secret) or a BTP Destination, with enabled and Allow CPI modifications switches and a "Test connection" action. |
+| **Configuration** | Maintains DEV/PROD connections using direct credentials (encrypted secret) or a BTP Destination, with enabled and Allow CPI modifications switches and a "Test connection" action; the script executor of the Groovy IDE; BTP platform access (Service Manager key) per DEV/PROD for the PIR lookup in Endpoints. |
 
 ## Quick start (local)
 
@@ -91,7 +91,7 @@ Details and templates: **[docs/adding-a-feature.md](docs/adding-a-feature.md)**.
 | `/odata/v4/features` | any authenticated user | feature list for the side navigation |
 | `/odata/v4/config` | Admin | `Connections` (DEV/PROD) and `ScriptExecutor` (Groovy IDE runner), draft-enabled, actions `test`, `setSecret` |
 | `/odata/v4/version-comparator` | Viewer, Admin | `listPackages()` (DEV), `compare(packageId)` |
-| `/odata/v4/endpoints` | Viewer, Admin | `listPackages(tenant)`, `listEndpoints(tenant, packageId, iflow, url, adapter, role, accessRoles)`, `endpointDetails(tenant, iflowId, url)` |
+| `/odata/v4/endpoints` | Viewer, Admin | `listPackages(tenant)`, `listEndpoints(tenant, packageId, iflow, url, adapter, role, accessRoles)`, `endpointDetails(tenant, iflowId, url)`, `listPirs(tenant, role)` |
 | `/odata/v4/search` | Viewer, Admin | `listPackages(tenant)`, `search(tenant, packageId, name, value, caseSensitive, iflows, scripts)` |
 | `/odata/v4/groovy-ide` | Viewer (read), Developer, Admin | `Scripts`, `ScriptVersions`, `ScriptInputs`, `saveVersion`, `run`, `executorStatus()`, DEV download value helps |
 

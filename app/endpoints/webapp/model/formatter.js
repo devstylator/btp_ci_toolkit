@@ -14,6 +14,11 @@ sap.ui.define([], function () {
       return text || this.getOwnerComponent().getModel("i18n").getResourceBundle().getText("empty");
     },
 
+    /** Array of strings as one comma separated text (`-` when empty). */
+    list(values) {
+      return Array.isArray(values) && values.length ? values.join(", ") : "-";
+    },
+
     dateTime(iso) {
       return iso ? new Date(iso).toLocaleString() : "-";
     },
